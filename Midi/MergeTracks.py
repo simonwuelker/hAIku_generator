@@ -1,4 +1,5 @@
 import mido
+import sys
 
 tempo = None
 
@@ -15,7 +16,7 @@ def second2tick(seconds):
 		return 0
 
 #Load the original midi file
-file = mido.MidiFile("example.mid")
+file = mido.MidiFile(sys.argv[1])
 ticks_per_beat = file.ticks_per_beat
 
 
@@ -34,4 +35,4 @@ for msg in file:
 
 	track.append(msg.copy(time = second2tick(msg.time)))
 
-new.save("example.mid")
+new.save(sys.argv[1])
