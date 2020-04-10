@@ -1,8 +1,9 @@
 #Documentation for MIDIUtils:https://midiutil.readthedocs.io/en/latest/
-from midiutil.MidiFile import MIDIFile
+#from midiutil.MidiFile import MIDIFile
+import mido
 import numpy as np
 
-array = np.load("output_array.npy")
+array = np.load("Files/output_array.npy")
 
 def getNoteLength(start_idx, note):
 	end_idx = start_idx
@@ -15,6 +16,41 @@ def getNoteLength(start_idx, note):
 
 
 
+mid = mido.MidiFile(type = 0)
+track = mido.MidiTrack()
+mid.tracks.append(track)
+samplerate = 100
+
+mid.ticks_per_beat = 96
+beats_per_minute = 120
+tempo = mido.bpm2tempo(beats_per_minute)
+
+track.append(mido.Message('program_change', program=12, time=0))
+
+playing = np.zeros(128)
+#prevtimeindex merkt sich den zeitpunkt der letzten note, wichtig für dtime(sehr gute fehlerquelle)
+prev_time_index = 0
+
+for time_index, state in enumerate(array):
+	for note_index, note in enumerate(state):
+		if note and not playing[note_index]:
+			#print("Dtime = {}".format(mido.second2tick((time_index-prev_time_index)/10, mid.ticks_per_beat, tempo)))
+			#print("Dtime = {}".format((time_index-prev_time_index)/10))
+			track.append(mido.Message('note_on', note=note_index, velocity=64, time=int(mido.second2tick((time_index-prev_time_index)/samplerate, mid.ticks_per_beat, tempo))))
+			playing[note_index] = True
+			prev_time_index = time_index
+
+		elif not note and playing[note_index]:
+			track.append(mido.Message('note_off', note=note_index, velocity=64, time=int(mido.second2tick((time_index-prev_time_index)/samplerate, mid.ticks_per_beat, tempo))))
+			playing[note_index] = False
+			prev_time_index = time_index
+
+
+
+mid.save("Files/from_array.mid")
+
+
+"""
 # create your MIDI object
 mf = MIDIFile(1)
 track = 0
@@ -43,3 +79,4 @@ for tick_idx in range(array.shape[0]):
 # write it to disk
 with open("from_array.mid", 'wb') as outf:
     mf.writeFile(outf)
+"""
