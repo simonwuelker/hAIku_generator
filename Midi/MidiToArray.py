@@ -1,14 +1,10 @@
-"""
-Zuerst werden alle Eventzeiten auf die samplerate gerundet.(Tempochanges werden ignoriert)
-"""
 import mido
 import numpy as np
 
 #10 Samples/Second
 samplerate = 100
 
-file = mido.MidiFile("Files/example.mid") 
-print("Tempo: {}, ticks per beat: {}".format(file.__dict__, file.ticks_per_beat))
+file = mido.MidiFile("example.mid") 
 
 state = np.zeros([128])
 array = np.zeros([int(file.length*samplerate), 128])
@@ -40,4 +36,4 @@ for msg in file:
 		else:
 			state[msg.note] = 1
 file.close()
-np.save("Files/output_array", array)
+np.save("output_array", array)
