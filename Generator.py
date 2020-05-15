@@ -9,17 +9,19 @@ import mido
 import Converter
 
 class generator(nn.Module):
-	def __init__(self, in_size = 80, hidden_size = 64, n_layers = 2, out_size = 80):
+	def __init__(self, in_size = 80, hidden_size = 128, n_layers = 2, out_size = 80, lr = 0.01, batch_size = 32):
 		super(generator, self).__init__()
 
 		self.in_size = in_size
 		self.hidden_size = hidden_size
 		self.n_layers = n_layers
 		self.out_size = out_size
+		self.lr = lr
+		self.batch_size = batch_size
 		self.losses = []
 
 		self.lstm = nn.LSTM(in_size, hidden_size, n_layers)
-		self.hidden = (torch.rand(n_layers, 1, hidden_size), torch.rand(n_layers, 1, hidden_size))
+		self.hidden = (torch.rand(n_layers, batch_size, hidden_size), torch.rand(n_layers, batch_size, hidden_size))
 
 		self.policy = nn.Sequential(
 			nn.Linear(self.hidden_size, 128),
@@ -28,11 +30,12 @@ class generator(nn.Module):
 			nn.ReLU(),
 			nn.Linear(192, 128),
 			nn.ReLU(),
-			nn.Linear(128, 80)
+			nn.Linear(128, 80),
+			nn.Sigmoid()
 			
 			)
-		self.optimizer = optim.Adam(self.parameters(), 0.05)
-		self.criterion = nn.MSELoss()
+		self.optimizer = optim.Adam(self.parameters(), lr)
+
 
 	def forward(self, input):
 		lstm_out, self.hidden = self.lstm(input)
@@ -42,10 +45,10 @@ class generator(nn.Module):
 		return probs
 
 	def reset_hidden(self):
-		self.hidden = (torch.rand(self.n_layers, 1, self.hidden_size), torch.rand(self.n_layers, 1, self.hidden_size))
+		self.hidden = (torch.rand(self.n_layers, self.batch_size, self.hidden_size), torch.rand(self.n_layers, self.batch_size, self.hidden_size))
 
 	def play_example(self,length = 100, print_msg = False):
-		array = self.generate_sequence()
+		array = self.generate_sequence(length)
 		
 		mid = Converter.toMidi(array)
 		port = mido.open_output()
@@ -55,14 +58,21 @@ class generator(nn.Module):
 				print(msg)
 			port.send(msg)
 
-	def generate_sequence(self, length = 100):
-		self.reset_hidden()
-		array = torch.empty([length, 80])
+	def save_example(self, length = 100):
+		array = self.generate_sequence(length)
 
-		state = torch.rand([80])
+		mid = Converter.toMidi(array)
+		mid.save("output.mid")
+
+	def generate_sequence(self, length):
+		self.reset_hidden()
+		array = torch.empty([length, self.batch_size, 80])
+
+		state = torch.rand([self.batch_size, 80])
 
 		for index in range(length):
-			output = self(state.view(1, 1, 80))
+			output = self(state.view(1, self.batch_size, 80))
+
 			array[index] = output
 			state = output
 
