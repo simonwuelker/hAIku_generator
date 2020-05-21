@@ -1,56 +1,64 @@
-import mido
+import mido 
 import numpy as np
+import random
+import os
+import torch
 
-def getNoteLength(start_idx, note):
-		end_idx = start_idx
-		while array[end_idx][note] and end_idx != array.shape[0]:
-			if end_idx < array.shape[0]-1:
-				end_idx += 1
-			else:
-				break
-		return (end_idx-start_idx)/tps
+with open("C:/Users/Wuelle/Documents/KI-Bundeswettbewerb-2020/BW-KI-2020/vocab.txt", "r") as vocab:
+	words = vocab.read().split(",")
+	vocab_size = len(words)
+	ix_to_msg = {ix:msg for ix, msg in enumerate(words)}
+	msg_to_ix = {msg:ix for ix, msg in enumerate(words)}
+
+def fetch_sample(length, dataset_path):
+	while True:
+		filename = dataset_path + random.choice(os.listdir(dataset_path))
+		sample = torch.from_numpy(np.load(filename))
+		#das ist jetzt hochverwirrend
+		array = torch.empty(length)
+		for i in range(int(len(sample)/length)):
+			part = sample[i*length:(i+1)*length].unsqueeze(1).float()
+			yield OneHotEncode(part).unsqueeze(1)
+
+def OneHotEncode(sequence):
+	result = torch.zeros(sequence.shape[0], vocab_size)
+	for index, element in enumerate(sequence):
+		result[index, element.int().item()] = 1
+	return result
 
 
 def roundEventTime(time, samplerate):
 	return round(time*samplerate)/samplerate
 
-def toArray(inp_file, samplerate=100):
+def getVocabSize():
+	return len(words)
 
-	file = mido.MidiFile(inp_file) 
+def encode(path, samplerate, lower_bound = 20, upper_bound = 81):
+	file = mido.MidiFile(path)
 
-	state = np.zeros([80])
-	array = np.zeros([int(file.length*samplerate), 80])
-	index = 0
-	count = 0
-
-	#msg Object structure: {'type': 'note_on', 'time': 0, 'channel': 0, 'note': 1, 'velocity': 100}
-	#'time' attribute is given in seconds
+	messages = []
 	for msg in file:
-		#ignore all non-note changes
-		if msg.type == "note_on" or msg.type == "note_off":
-			if msg.note < 100 and msg.note > 20:
-				#Round the msg time to the nearest sample
-				msg.time = roundEventTime(msg.time, samplerate)
+		d_time = roundEventTime(msg.time, samplerate)
 
-				#if the event is at a new timestep, flush the old state n times to the array
-				if msg.time != 0:
-					for _ in range(int(msg.time*samplerate)-1):
-						array[count] = state
-						count += 1
+		#account for delay by waiting 1/samplerate of a second n times
+		for _ in range(int(d_time*samplerate)):
+			messages.append(msg_to_ix["wait12"])
 
 
-				#Note events with velocity 0 are considered to be note off events
-				if msg.type == "note_off" or msg.velocity == 0:
-					state[msg.note-20] = 0
+		if msg.type == "note_on":
+			if msg.note > lower_bound and msg.note < upper_bound:
+				if msg.velocity != 0:
+					messages.append(msg_to_ix["note_on:{}".format(msg.note)])
 				else:
-					state[msg.note-20] = 1
+					messages.append(msg_to_ix["note_off:{}".format(msg.note)])
 
-	return array[:count]
+		elif msg.type == "note_off":
+			if msg.note > lower_bound and msg.note < upper_bound:
+				messages.append(msg_to_ix["note_off:{}".format(msg.note)])
 
-#toArray("example.mid")
+	return np.array(messages)
 
-
-def toMidi(array, samplerate = 100):
+def decode(messages):
 	mid = mido.MidiFile(type = 0)
 	track = mido.MidiTrack()
 	mid.tracks.append(track)
@@ -58,26 +66,20 @@ def toMidi(array, samplerate = 100):
 	mid.ticks_per_beat = 96
 	beats_per_minute = 120
 	tempo = mido.bpm2tempo(beats_per_minute)
+	msg_time = 0
 
-	track.append(mido.Message('program_change', program=12, time=0))
+	track.append(mido.Message('program_change', program=11, time=0))
+	for msg in messages:
+		msg_txt = ix_to_msg[msg]
+		if msg_txt.find("note_on") != -1:
+			track.append(mido.Message('note_on', note=int(msg_txt[msg_txt.index(":")+1:])+20, velocity=64, time=msg_time))
+			msg_time = 0
+		elif msg_txt.find("note_off") != -1:
+			track.append(mido.Message('note_off', note=int(msg_txt[msg_txt.index(":")+1:])+20, velocity=64, time=msg_time))
+			msg_time = 0
 
-	playing = np.zeros(80)
-
-	#prevtimeindex merkt sich den zeitpunkt der letzten note, wichtig für dtime
-	prev_time_index = 0
-
-	for time_index, state in enumerate(array):
-		for note_index, note in enumerate(state):
-			if note and not playing[note_index]:
-				track.append(mido.Message('note_on', note=note_index+20, velocity=64, time=int(mido.second2tick((time_index-prev_time_index)/samplerate, mid.ticks_per_beat, tempo))))
-				playing[note_index] = True
-				prev_time_index = time_index
-
-			elif not note and playing[note_index]:
-				track.append(mido.Message('note_off', note=note_index+20, velocity=64, time=int(mido.second2tick((time_index-prev_time_index)/samplerate, mid.ticks_per_beat, tempo))))
-				playing[note_index] = False
-				prev_time_index = time_index
-
+		elif msg_txt.find("wait12") != -1:
+			msg_time += int(mido.second2tick(1/12, mid.ticks_per_beat, tempo))
 	return mid
 
 def playMidi(file):
@@ -87,5 +89,3 @@ def playMidi(file):
 	for msg in file.play():
 		print(msg)
 		port.send(msg)
-
-

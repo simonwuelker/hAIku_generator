@@ -8,68 +8,54 @@ import numpy as np
 import random
 import os
 
-import Generator
+import Generator_LSTM as Generator
 import Discriminator
+import Converter
 
 import matplotlib.pyplot as plt
+import matplotlib.collections as collections
 
 #Gegebenenfalls GPU detecten
 device = torch.device("cpu")
 if torch.cuda.is_available():
 	device = torch.device("cuda")
 
-def fetch_sample(length, batch_size = 32):
-	while True:
-		filename = dataset_path + random.choice(os.listdir(dataset_path))
-		sample = torch.from_numpy(np.load(filename))
-		#das ist jetzt hochverwirrend
-		array = torch.empty(length, batch_size)
-		for i in range(batch_size)
-			
-		for i in range(int(len(sample)/length)):
-			yield sample[i*length:(i+1)*length].unsqueeze(1).float()
 
-
-#Parameter
-dataset_path = "C:/Users/Wuelle/Documents/KI-Bundeswettbewerb-2020/Datensatz/Numpy-Arrays/"
-modelsave_path = "C:/Users/Wuelle/Documents/KI-Bundeswettbewerb-2020/Network/models/"
+dataset_path = "C:/Users/Wuelle/Documents/KI-Bundeswettbewerb-2020/Datensatz/notewise/"
+modelsave_path = "C:/Users/Wuelle/Documents/KI-Bundeswettbewerb-2020/BW-KI-2020/models/"
 load_models = False
 
 torch.manual_seed(1)
 random.seed(1)
 np.random.seed(1)
 
-generator = Generator.generator()
-discriminator = Discriminator.discriminator()
+discriminator_trained = []
+
+generator = Generator.generator(in_size = Converter.vocab_size, hidden_size = 192, out_size = Converter.vocab_size)
+discriminator = Discriminator.discriminator(in_size = Converter.vocab_size)
 
 sample_size = 100
-dataloader = fetch_sample(sample_size)
+dataloader = Converter.fetch_sample(sample_size, dataset_path)
+
 
 if load_models:
 	generator.load_state_dict(torch.load(modelsave_path + "Generator.pt"))
 	discriminator.load_state_dict(torch.load(modelsave_path + "Discriminator.pt"))
-else:
-	#generator.load_state_dict(torch.load(modelsave_path + "Generator_pretrained.pt"))
-	pass
-
-
 
 #TRAINING
 discriminator.train()
 generator.train()
 
-for episode in range(1000):
+num_episodes = 1
+
+for episode in range(num_episodes):
 	print("Episode Nr.{}".format(episode))
 	
 	#load a random file to test the discriminator with
 	filename = dataset_path + random.choice(os.listdir(dataset_path))
 
 	real_sample = next(dataloader)
-	fake_sample = generator.generate_sequence(sample_size)#.unsqueeze(1)
-
-	if len(real_sample) == 0:
-		print("error filename {}".format(filename))
-		continue
+	fake_sample = generator.generate_sequence(sample_size)
 
 	#take outputs from discriminator
 	score_real = discriminator(real_sample)
@@ -89,8 +75,8 @@ for episode in range(1000):
 		discriminator.optimizer.zero_grad()
 		loss_d.backward(retain_graph = True)
 		discriminator.optimizer.step()
-	else:
-		print("Not training Discriminator")
+
+	discriminator_trained.append(loss_d > 0.25)
 
 	
 	#optimize generator
@@ -108,8 +94,18 @@ torch.save(generator.state_dict(), modelsave_path + "Generator.pt")
 generator.save_example()
 
 #plot the graph of the different losses over time
-plt.plot(generator.losses, label = "Generator")
-plt.plot(discriminator.losses, label = "Discriminator")
-plt.legend()
+fig, ax = plt.subplots()
+ax.plot(generator.losses, label = "Generator")
+ax.plot(discriminator.losses, label = "Discriminator")
+
+collection = collections.BrokenBarHCollection.span_where(
+    np.arange(num_episodes), ymin=0, ymax=10, where=discriminator_trained, facecolor='green', alpha=0.5)
+ax.add_collection(collection)
+
+collection = collections.BrokenBarHCollection.span_where(
+    np.arange(num_episodes), ymin=0, ymax=10, where=[not i for i in discriminator_trained], facecolor='red', alpha=0.5)
+ax.add_collection(collection)
+
+ax.legend()
 
 plt.show()

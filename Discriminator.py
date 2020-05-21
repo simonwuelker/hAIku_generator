@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 class discriminator(nn.Module):
-	def __init__(self, in_size = 80, hidden_size = 50, out_size = 1, n_layers = 1, lr = 0.01, batch_size = 32):
+	def __init__(self, in_size = 80, hidden_size = 50, out_size = 1, n_layers = 1, lr = 0.01, batch_size = 1):
 		super(discriminator, self).__init__()
 
 		self.in_size = in_size
