@@ -35,3 +35,9 @@ class discriminator(nn.Module):
 
 	def reset_hidden(self):
 		self.hidden = (torch.rand(self.n_layers, self.batch_size, self.hidden_size), torch.rand(self.n_layers, self.batch_size, self.hidden_size))
+
+	def saveModel(self, path):
+		torch.save(self.state_dict(), path)
+
+	def loadModel(self, path):
+		self.load_state_dict(torch.load(path))

@@ -1,55 +1,44 @@
-import torch
-import torch.nn as nn
-import torch.optim as optim
+import mcts
 
 import numpy as np
+import torch
 
 import mido
 
 import Converter
 
-class generator(nn.Module):
-	def __init__(self, in_size = 80, hidden_size = 128, n_layers = 2, out_size = 80, lr = 0.01, batch_size = 1):
-		super(generator, self).__init__()
+class generator():
+	def __init__(self, sequence_length, branching_factor, c = 1.4):
+		#Monte Carlo
+		mcts.Node.c = c
+		mcts.Node.branching_factor = branching_factor
+		self.start_node = mcts.Node(None, np.empty(sequence_length)-1)
+		
 
-		self.in_size = in_size
-		self.hidden_size = hidden_size
-		self.n_layers = n_layers
-		self.out_size = out_size
-		self.lr = lr
-		self.batch_size = batch_size
+		self.sequence_length = sequence_length
+		self.branching_factor = branching_factor
 		self.losses = []
 
-		self.lstm = nn.LSTM(in_size, hidden_size, n_layers)
-		self.hidden = (torch.rand(n_layers, batch_size, hidden_size), torch.rand(n_layers, batch_size, hidden_size))
+		#last node is the node to start backpropagating from
+		self.last_node = None
 
-		self.policy = nn.Sequential(
-			nn.Linear(self.hidden_size, 128),
-			nn.ReLU(),
-			nn.Linear(128, 192),
-			nn.ReLU(),
-			nn.Linear(192, 128),
-			nn.ReLU(),
-			nn.Linear(128, in_size),
-			nn.Softmax()
-			
-			)
-		self.optimizer = optim.Adam(self.parameters(), lr)
+	def __call__(self, sequence_length, encode = True):
+		sequence, self.last_node = mcts.cycle(self.start_node, sequence_length)
+		if encode:
+			return Converter.OneHotEncode(torch.Tensor(sequence)).unsqueeze(1)
+		else:
+			return sequence
 
+	def optimize(self, score):
+		mcts.Node.allNodes[self.last_node].backpropagate(score)
 
-	def forward(self, input):
-		lstm_out, self.hidden = self.lstm(input)
-		lstm_out = lstm_out.view(self.hidden_size)#view geändert
-		probs = self.policy(lstm_out)
+	def saveModel(self, path):
+		mcts.saveTree(path)
 
-		return probs
+	def loadModel(self, path):
+		mcts.loadTree(path)
 
-	def reset_hidden(self):
-		self.hidden = (torch.rand(self.n_layers, self.batch_size, self.hidden_size), torch.rand(self.n_layers, self.batch_size, self.hidden_size))
-
-	def play_example(self,length = 100, print_msg = False):
-		array = self.generate_sequence(length)
-		
+	def play_example(array):
 		mid = Converter.toMidi(array)
 		port = mido.open_output()
 
@@ -59,25 +48,13 @@ class generator(nn.Module):
 			port.send(msg)
 
 	def save_example(self, length = 100):
-		array = self.generate_sequence(length)
-		output = np.empty(array.shape[0])
-		for index, element in enumerate(array):
-			output[index] = torch.argmax(element).item()
-
+		output = self(length, encode = False)
 		mid = Converter.decode(output)
 		mid.save("output.mid")
 
-	def generate_sequence(self, length):
-		self.reset_hidden()
-		array = torch.empty([length, self.batch_size, self.in_size])
+	def train(self):
+		pass
 
-		state = torch.rand([self.batch_size, self.in_size])
-
-		for index in range(length):
-			output = self(state.view(1, self.batch_size, self.in_size))
-
-			array[index] = output
-			state = output
-
-		return array
+	def eval(self):
+		pass
 

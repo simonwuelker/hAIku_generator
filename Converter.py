@@ -10,15 +10,16 @@ with open("C:/Users/Wuelle/Documents/KI-Bundeswettbewerb-2020/BW-KI-2020/vocab.t
 	ix_to_msg = {ix:msg for ix, msg in enumerate(words)}
 	msg_to_ix = {msg:ix for ix, msg in enumerate(words)}
 
-def fetch_sample(length, dataset_path):
+def fetch_sample(length, dataset_path, encode = True):
 	while True:
 		filename = dataset_path + random.choice(os.listdir(dataset_path))
-		sample = torch.from_numpy(np.load(filename))
-		#das ist jetzt hochverwirrend
-		array = torch.empty(length)
+		sample = np.load(filename)
 		for i in range(int(len(sample)/length)):
-			part = sample[i*length:(i+1)*length].unsqueeze(1).float()
-			yield OneHotEncode(part).unsqueeze(1)
+			part = sample[i*length:(i+1)*length]
+			if encode:
+				yield OneHotEncode(torch.from_numpy(part)).unsqueeze(1).float()
+			else:
+				yield part
 
 def OneHotEncode(sequence):
 	result = torch.zeros(sequence.shape[0], vocab_size)
