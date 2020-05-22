@@ -9,33 +9,34 @@ class Node:
 
 	counter = 0
 	allNodes = []
-	def __init__(self, parent, state, branching_factor):
+	branching_factor = 0
+	def __init__(self, parent, state):
 		self.parent = parent
 		self.state = state
-		self.branching_factor = branching_factor
 
-		self.children = np.zeros(branching_factor, dtype = np.uint32)
-		self.scores = np.zeros(branching_factor)
-		self.simulations = np.zeros(branching_factor)
+		self.children = np.zeros(Node.branching_factor, dtype = np.uint32)
+		self.scores = np.zeros(Node.branching_factor)
+		self.simulations = np.zeros(Node.branching_factor)
 
 		self.last_move = None
 
-		allNodes.append(self)
+		self.id = Node.counter
+		Node.allNodes.append(self)
 		Node.counter += 1
 
 	def chooseMove(self):
 		#check for unexplored nodes
-		for move_ix in range(self.branching_factor):
+		for move_ix in range(Node.branching_factor):
 			if self.simulations[move_ix] == 0:
 				self.last_move = move_ix
 				return move_ix, True
 
-		UCTScores = np.zeros(self.branching_factor)#[0 for _ in range(self.branching_factor)]
+		UCTScores = np.zeros(Node.branching_factor)
 
 		total_simulations = sum(self.simulations)
 
 		#calculate the uct value of each node
-		for move_ix in range(self.branching_factor):
+		for move_ix in range(Node.branching_factor):
 			#Add the avg score to each moves UCT score(this is the 'Exploitation' part)
 			UCTScores[move_ix] += self.scores[move_ix]/self.simulations[move_ix]
 			#Add the whole 'Exploration' part
@@ -52,26 +53,32 @@ class Node:
 
 		#recursively backpropagate the score through the search tree(Source node has parent None)
 		if self.parent != None:
-			self.parent.backpropagate(score)
+			Node.allNodes[self.parent].backpropagate(score)
+#optimaler wäre es die ganze klasse mit pickle zu speichern
+def saveTree(path):
+	with open(path, "wb") as out_file:
+		pickle.dump(Node.allNodes, out_file)
 
-	def saveTree(path):
-		with open(path, "wb") as out_file:
-			pickle.dump(Node.allNodes, out_file)
+def loadTree(path):
+	with open(path, "rb") as in_file:
+		Node.allNodes = pickle.load(in_file)
 
-	def loadTree(path):
-		with open(path, "rb") as in_file:
-			Node.allNodes = pickle.load(in_file)
+def expand(state, move):
+	for index, element in enumerate(state):
+		if element == -1:
+			state[index] = move
+			return state
+	return "AHHH DAS ARRAY IST SCHON VOLLLLLL ALARM"
 
-def cycle(start_node):
+def cycle(start_node, maxMoves):
 	moves_left = maxMoves
 
 	current_node = start_node
 	moveTracker = []
 	rollout = False
-	win = False
 
 	#SELECTION
-	while not rollout and not win and moves_left > 0:
+	while not rollout and moves_left > 0:
 		move, rollout = current_node.chooseMove()
 		moveTracker.append(move)
 		moves_left -= 1
@@ -80,33 +87,16 @@ def cycle(start_node):
 		else:
 			#EXPANSION
 			previous_node = current_node
-			current_node = Node(previous_node, Game.expand(current_node.state.copy(), move))
+			current_node = Node(previous_node.id, expand(current_node.state.copy(), move))
 			previous_node.children[move] = Node.counter-1
 
-		win = Game.testWin(current_node.state)
 	
-	if not win and moves_left > 0:
+	if moves_left > 0:
 		#SIMULATION
 		state = current_node.state.copy()
 		for x in range(moves_left):
-			state = Game.expand(state, np.random.randint(9))
-			if Game.testWin(state):
-				win = True
-				break
-	
+			move = np.random.randint(Node.branching_factor)
+			state = expand(state, move)
+			moveTracker.append(move)
 
-
-	#BACKPROPAGATION
-	print("Win:", win)
-	current_node.parent.backpropagate(win)
-	print(moveTracker)
-	return win
-
-
-
-class Environment:
-	def testWin(self, state):
-		pass
-
-	def expand(self, state, move):
-		pass
+	return moveTracker, current_node.parent

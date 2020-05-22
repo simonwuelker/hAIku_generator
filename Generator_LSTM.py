@@ -30,25 +30,33 @@ class generator(nn.Module):
 			nn.ReLU(),
 			nn.Linear(192, 128),
 			nn.ReLU(),
-			nn.Linear(128, in_size),
-			nn.Softmax()
+			nn.Linear(128, out_size),
+			nn.Softmax(dim = 0)
 			
 			)
 		self.optimizer = optim.Adam(self.parameters(), lr)
 
 
-	def forward(self, input):
-		lstm_out, self.hidden = self.lstm(input)
-		lstm_out = lstm_out.view(self.hidden_size)#view geändert
-		probs = self.policy(lstm_out)
+	def forward(self, sequence_length):
+		self.reset_hidden()
 
-		return probs
+		array = torch.empty([sequence_length, self.batch_size, self.out_size])
+		state = torch.rand([self.batch_size, self.in_size])
+
+		for index in range(sequence_length):
+			lstm_out, self.hidden = self.lstm(state.view(1, self.batch_size, self.in_size), self.hidden)
+
+			output = self.policy(lstm_out.view(self.hidden_size))#view geändert
+
+			array[index] = output
+			state = output
+		return array
 
 	def reset_hidden(self):
 		self.hidden = (torch.rand(self.n_layers, self.batch_size, self.hidden_size), torch.rand(self.n_layers, self.batch_size, self.hidden_size))
 
-	def play_example(self,length = 100, print_msg = False):
-		array = self.generate_sequence(length)
+	def play_example(self,length = 100, print_msg = True):
+		array = self(length)
 		
 		mid = Converter.toMidi(array)
 		port = mido.open_output()
@@ -59,7 +67,7 @@ class generator(nn.Module):
 			port.send(msg)
 
 	def save_example(self, length = 100):
-		array = self.generate_sequence(length)
+		array = self(length)
 		output = np.empty(array.shape[0])
 		for index, element in enumerate(array):
 			output[index] = torch.argmax(element).item()
@@ -67,16 +75,8 @@ class generator(nn.Module):
 		mid = Converter.decode(output)
 		mid.save("output.mid")
 
-	def generate_sequence(self, length):
-		self.reset_hidden()
-		array = torch.empty([length, self.batch_size, self.in_size])
+	def saveModel(self, path):
+		torch.save(self.state_dict(), path)
 
-		state = torch.rand([self.batch_size, self.in_size])
-
-		for index in range(length):
-			output = self(state.view(1, self.batch_size, self.in_size))
-
-			array[index] = output
-			state = output
-
-		return array
+	def loadModel(self, path):
+		self.load_state_dict(torch.load(path))
