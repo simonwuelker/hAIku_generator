@@ -24,12 +24,13 @@ class Node:
 		Node.allNodes.append(self)
 		Node.counter += 1
 
-	def chooseMove(self):
-		#check for unexplored nodes
-		for move_ix in range(Node.branching_factor):
-			if self.simulations[move_ix] == 0:
-				self.last_move = move_ix
-				return move_ix, True
+	def chooseMove(self, allow_exploration = True):
+		if allow_exploration:
+			#check for unexplored nodes
+			for move_ix in range(Node.branching_factor):
+				if self.simulations[move_ix] == 0:
+					self.last_move = move_ix
+					return move_ix, True
 
 		UCTScores = np.zeros(Node.branching_factor)
 
@@ -39,11 +40,13 @@ class Node:
 		for move_ix in range(Node.branching_factor):
 			#Add the avg score to each moves UCT score(this is the 'Exploitation' part)
 			UCTScores[move_ix] += self.scores[move_ix]/self.simulations[move_ix]
-			#Add the whole 'Exploration' part
-			UCTScores[move_ix] += Node.c * np.sqrt(np.log(total_simulations)/self.simulations[move_ix])
+
+			if allow_exploration:
+				#Add the whole 'Exploration' part
+				UCTScores[move_ix] += Node.c * np.sqrt(np.log(total_simulations)/self.simulations[move_ix])
 
 		#return the move with the highest value
-		move = np.argmax(UCTScores)
+		move = np.argmax([0 if np.isnan(score) else score for score in UCTScores])
 		self.last_move = move
 		return move, False
 
@@ -62,6 +65,7 @@ def saveTree(path):
 def loadTree(path):
 	with open(path, "rb") as in_file:
 		Node.allNodes = pickle.load(in_file)
+	Node.counter = len(Node.allNodes)
 
 def expand(state, move):
 	for index, element in enumerate(state):
@@ -70,7 +74,7 @@ def expand(state, move):
 			return state
 	return "AHHH DAS ARRAY IST SCHON VOLLLLLL ALARM"
 
-def cycle(start_node, maxMoves):
+def cycle(start_node, maxMoves, allow_exploration = True):
 	moves_left = maxMoves
 
 	current_node = start_node
@@ -79,7 +83,7 @@ def cycle(start_node, maxMoves):
 
 	#SELECTION
 	while not rollout and moves_left > 0:
-		move, rollout = current_node.chooseMove()
+		move, rollout = current_node.chooseMove(allow_exploration = allow_exploration)
 		moveTracker.append(move)
 		moves_left -= 1
 		if not rollout:
