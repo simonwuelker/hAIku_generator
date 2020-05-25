@@ -13,6 +13,7 @@ with open("C:/Users/Wuelle/Documents/KI-Bundeswettbewerb-2020/BW-KI-2020/vocab.t
 def fetch_sample(length, dataset_path, encode = True):
 	while True:
 		filename = dataset_path + random.choice(os.listdir(dataset_path))
+		print(f"Now sampling from {filename}")
 		sample = np.load(filename)
 		for i in range(int(len(sample)/length)):
 			part = sample[i*length:(i+1)*length]

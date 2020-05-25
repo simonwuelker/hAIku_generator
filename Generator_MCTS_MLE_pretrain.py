@@ -1,26 +1,27 @@
-import mcts
+import Generator_MCTS
 import MidiTools
 import os
 import random
 import numpy as np
+import pickle
 
 modelsave_path = "C:/Users/Wuelle/Documents/KI-Bundeswettbewerb-2020/BW-KI-2020/models/"
-dataset_path = "C:/Users/Wuelle/Documents/KI-Bundeswettbewerb-2020/Datensatz/notewise/"
+dataset_path = "C:/Users/Wuelle/Documents/KI-Bundeswettbewerb-2020/BW-KI-2020/notewise/"
 sample_size = 32
 dataloader = MidiTools.fetch_sample(sample_size, dataset_path, encode=False)
-load_search_tree = True
-mcts.Node.branching_factor = MidiTools.vocab_size
+load_search_tree = False
+Generator_MCTS.MCTSNode.branching_factor = MidiTools.vocab_size
 
 if load_search_tree:
-	mcts.loadTree(modelsave_path + "Generator_MCTS.pt")
-	start_node = mcts.Node.allNodes[0]
+	Generator_MCTS.generator.loadModel(modelsave_path + "Generator_MCTS.pt")
+	start_node = Generator_MCTS.MCTSNode.allNodes[0]
 else:
-	start_node = mcts.Node(None, np.empty(sample_size)-1)
+	start_node = Generator_MCTS.MCTSNode(None, np.empty(sample_size)-1)
 
 
 
-for i in range(1000):
-	print(f"File Nr.{i}")
+for i in range(10000):
+	print(f"Sample Nr.{i}")
 
 	current_node = start_node
 	sample = next(dataloader)
@@ -29,19 +30,24 @@ for i in range(1000):
 		current_node.simulations[note] += 1
 		current_node.scores[note] += 1
 
-
-		if current_node.simulations[note] == 0:
+		#test if this was the first time this node was simulated
+		if current_node.simulations[note] == 1:
 			previous_node = current_node
-			current_node = mcts.Node(previous_node.id, mcts.expand(current_node.state.copy(), note))
-			previous_node.children[move] = mcts.Node.counter-1
+			current_node = Generator_MCTS.MCTSNode(previous_node.id, Generator_MCTS.expand(current_node.state.copy(), note))
+			previous_node.children[note] = Generator_MCTS.MCTSNode.counter-1
 		else:
-			current_node = mcts.Node.allNodes[current_node.children[note]]
+			current_node = Generator_MCTS.MCTSNode.allNodes[current_node.children[note]]
 
-print(current_node.simulations)
+with open(modelsave_path + "Generator_MCTS_pretrained.pt", "wb") as out_file:
+	pickle.dump(Generator_MCTS.MCTSNode.allNodes, out_file)
 
-mcts.saveTree(modelsave_path + "Generator_MCTS.pt")
+
 #TEST
-import Generator_MCTS
+sequence = np.empty(sample_size)
+current_node = start_node
+for step in range(sample_size):
+	print(f"optimal move: {np.argmax(current_node.scores)}")
+	sequence[step] = np.argmax(current_node.scores)
 
-generator = Generator_MCTS.generator(sample_size, MidiTools.vocab_size)
-generator.save_example(print_output = True)
+	current_node = Generator_MCTS.MCTSNode.allNodes[current_node.children[np.argmax(current_node.scores)]]
+MidiTools.playMidi(MidiTools.decode(sequence))
