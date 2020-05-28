@@ -10,17 +10,15 @@ with open("C:/Users/Wuelle/Documents/KI-Bundeswettbewerb-2020/BW-KI-2020/vocab.t
 	ix_to_msg = {ix:msg for ix, msg in enumerate(words)}
 	msg_to_ix = {msg:ix for ix, msg in enumerate(words)}
 
-def fetch_sample(length, dataset_path, encode = True):
+def fetch_sample(length, dataset_path):
 	while True:
 		filename = dataset_path + random.choice(os.listdir(dataset_path))
 		print(f"Now sampling from {filename}")
 		sample = np.load(filename)
 		for i in range(int(len(sample)/length)):
 			part = sample[i*length:(i+1)*length]
-			if encode:
-				yield OneHotEncode(torch.from_numpy(part)).unsqueeze(1).float()
-			else:
-				yield part
+			#yield OneHotEncode(torch.from_numpy(part)).unsqueeze(1).float()
+			yield torch.from_numpy(part)
 
 def OneHotEncode(sequence):
 	result = torch.zeros(sequence.shape[0], vocab_size)
@@ -102,3 +100,17 @@ def playMidi(file):
 	for msg in file.play():
 		print(msg)
 		port.send(msg)
+
+def progressBar(start_time, time_now, training_time, episode):
+	bar_length = 20
+	elapsed = time_now - start_time
+	num_filled = int(round((elapsed/training_time)*bar_length, 0))
+	result = "["
+
+	result += "="*num_filled
+
+	result += "-"*(bar_length-num_filled)
+
+	result += f"] {round(((elapsed/training_time)*100), 1)}% - ({round(elapsed, 1)}s elapsed) - Episode Nr.{episode}"
+	print(result)
+
