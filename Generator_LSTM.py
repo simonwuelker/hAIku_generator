@@ -6,7 +6,7 @@ import numpy as np
 
 import mido
 
-import Converter
+import Tools
 
 class generator(nn.Module):
 	def __init__(self, in_size = 80, hidden_size = 128, n_layers = 2, out_size = 80, lr = 0.01, batch_size = 1):
@@ -40,16 +40,17 @@ class generator(nn.Module):
 	def forward(self, sequence_length):
 		self.reset_hidden()
 
-		array = torch.empty([sequence_length, self.batch_size, self.out_size])
+		array = torch.empty(sequence_length)
 		state = torch.rand([self.batch_size, self.in_size])
 
 		for index in range(sequence_length):
 			lstm_out, self.hidden = self.lstm(state.view(1, self.batch_size, self.in_size), self.hidden)
-
-			output = self.policy(lstm_out.view(self.hidden_size))#view geändert
+			output = torch.argmax(self.policy(lstm_out.view(self.hidden_size)))#view geändert
 
 			array[index] = output
-			state = output
+			state = torch.zeros(self.in_size)
+			state[output] = 1
+			
 		return array
 
 	def reset_hidden(self):
@@ -58,25 +59,11 @@ class generator(nn.Module):
 	def play_example(self,length = 100, print_msg = True):
 		array = self(length)
 		
-		mid = Converter.toMidi(array)
+		mid = Tools.decode(array)
 		port = mido.open_output()
 
 		for msg in mid.play():
 			if print_msg:
 				print(msg)
 			port.send(msg)
-
-	def save_example(self, length = 100):
-		array = self(length)
-		output = np.empty(array.shape[0])
-		for index, element in enumerate(array):
-			output[index] = torch.argmax(element).item()
-
-		mid = Converter.decode(output)
 		mid.save("output.mid")
-
-	def saveModel(self, path):
-		torch.save(self.state_dict(), path)
-
-	def loadModel(self, path):
-		self.load_state_dict(torch.load(path))
