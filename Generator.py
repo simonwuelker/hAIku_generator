@@ -65,5 +65,6 @@ class generator(nn.Module):
 		for msg in mid.play():
 			if print_msg:
 				print(msg)
+				
 			port.send(msg)
 		mid.save("output.mid")
