@@ -9,7 +9,7 @@ import random
 import os
 import time
 
-import Generator_LSTM
+import Generator
 import Discriminator
 import Tools
 
@@ -32,8 +32,9 @@ dataloader = Tools.fetch_sample(sample_size, dataset_path)
 # print("playing fake sample:")
 # Tools.playMidi(Tools.decode([random.randint(0,Tools.vocab_size-1) for _ in range(sample_size)]))
 # assert False
+
 #Init models
-generator = Generator_LSTM.generator(in_size = Tools.vocab_size, out_size = Tools.vocab_size)
+generator = Generator.generator(in_size = Tools.vocab_size, out_size = Tools.vocab_size)
 discriminator = Discriminator.discriminator(Tools.vocab_size, sample_size)
 
 
@@ -103,6 +104,8 @@ fig, ax = plt.subplots()
 # ax.plot(discriminator.losses, label = "Discriminator")
 ax.plot(discriminator.scores_real, label = "Real")
 ax.plot(discriminator.scores_fake, label = "Fake")
+plt.ylabel("Loss")
+plt.xlabel("training duration")
 ax.legend()
 
 plt.show()
