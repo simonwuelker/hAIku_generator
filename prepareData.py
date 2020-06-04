@@ -1,18 +1,25 @@
 import os
 import sys
 import numpy as np
-import MidiTools
+import Tools
+count = 0
 
-path = "C:/Users/Wuelle/Documents/KI-Bundeswettbewerb-2020/Datensatz/lmd_full"
-store_in = "notewise"#"C:/Users/Wuelle/Documents/KI-Bundeswettbewerb-2020/Datensatz/notewise"
+def convert(path, store_in):
+	global count
+	for filename in os.listdir(path):
+		file_path = f"{path}/{filename}"
+		print(file_path)
+		if os.path.isfile(file_path):
+			print(f"File Nr.{count}: {filename}")
+			count += 1
+			try:
+				messages = Tools.encode(file_path, 12)
+				np.save(f"{store_in}/{filename}.npy", messages)
+			except:
+				os.remove(file_path)
 
-for index, filename in enumerate(os.listdir(path)):
-	file_path = f"{path}/{filename}"
-	if os.path.isfile(file_path):
-		print(f"File Nr.{index}: {filename}")
-		try:
-			messages = MidiTools.encode(file_path, 12)
-			print(f"{store_in}/{filename}")
-			np.save(f"{store_in}/{filename}.npy", messages)
-		except:
-			os.remove(file_path)
+		#recursively go through subdirectories
+		elif os.path.isdir(file_path):
+			convert(file_path, store_in)
+
+convert("/home/kepler/Desktop/midi_files", "/home/kepler/Desktop/notewise")
