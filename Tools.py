@@ -4,7 +4,7 @@ import random
 import os
 import torch
 
-with open("C:/Users/Wuelle/Documents/KI-Bundeswettbewerb-2020/BW-KI-2020/vocab.txt", "r") as vocab:
+with open("/home/kepler/Desktop/BW-KI-2020/vocab.txt", "r") as vocab:
 	words = vocab.read().split(",")
 	vocab_size = len(words)
 	ix_to_msg = {ix:msg for ix, msg in enumerate(words)}
@@ -107,9 +107,9 @@ def progressBar(start_time, time_now, training_time, episode):
 	num_filled = int(round((elapsed/training_time)*bar_length, 0))
 	result = "["
 
-	result += "="*num_filled
+	result += "█"*num_filled
 
-	result += "-"*(bar_length-num_filled)
+	result += "―"*(bar_length-num_filled)
 
 	result += f"] {round(((elapsed/training_time)*100), 1)}% - ({round(elapsed, 1)}s elapsed) - Episode Nr.{episode}"
 	print(result)

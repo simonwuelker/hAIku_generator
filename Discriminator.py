@@ -30,6 +30,7 @@ class discriminator(nn.Module):
 		
 
 	def forward(self, input):
+		#BATCH SIZE!!
 		input = input.view(1, 1, input.shape[0]).float()
 		x = self.conv1(input)
 		#x = self.pool1(x)
