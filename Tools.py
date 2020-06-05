@@ -113,4 +113,19 @@ def progressBar(start_time, time_now, training_time, episode):
 
 	result += f"] {round(((elapsed/training_time)*100), 1)}% - ({round(elapsed, 1)}s elapsed) - Episode Nr.{episode}"
 	print(result)
+	
+def rolloutPartialSequence(input):
+	output = torch.empty(len(target_raw), input.shape[1], input.shape[2])
 
+	output[:input.shape[0]] = input
+
+
+	#randomly fill in the remaining values(rollout)
+	for index in range(input.shape[0], len(target_raw)):
+		batch = torch.zeros(input.shape[1], len(vocab))
+		for b in range(input.shape[1]):
+			batch[b] = torch.zeros(len(vocab))
+			batch[b][random.randint(0, len(vocab)-1)] = 1
+
+		output[index] = batch
+	return output

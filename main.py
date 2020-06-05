@@ -16,6 +16,32 @@ import Tools
 import matplotlib.pyplot as plt
 import matplotlib.collections as collections
 
+def predMaxReward(state):
+	#predMaxReward(state) judges the quality of the given state [0,1] by performing n rollouts
+	batch_size = state.shape[1]
+	simulations = 50	#increase simulations to increase reward accuracy
+	maxScores = torch.tensor([float("-inf")]*batch_size)
+	for roll_ix in range(simulations):
+		completed = Tools.rolloutPartialSequence(state)	#complete sequence to allow the discriminator to judge it
+		scores = discriminator(completed)
+		scores = scores[-1,:]
+		for batch_ix in range(batch_size):
+			if scores[batch_ix] > maxScores[batch_ix]:
+				maxScores[batch_ix] = scores[batch_ix]
+	return maxScores
+
+def Q(state):
+	#state = state[1:]#des is falsch oder macht zumindest wenig sinn
+	#Q(state) returns the quality of all possible actions that can be performed in the given state(assumes state has Markovian Property)
+	batch_size = state.shape[1]
+	output = torch.empty(Tools.vocab_size, batch_size)#dimensions are wrong, will be transposed later
+
+	for action in range(Tools.vocab_size):
+		output[action] = predMaxReward(expandTree(state, action))
+
+	output = output.transpose(0, 1)
+	return output
+
 dataset_path = "C:/Users/Wuelle/Documents/KI-Bundeswettbewerb-2020/BW-KI-2020/notewise/"
 modelsave_path = "C:/Users/Wuelle/Documents/KI-Bundeswettbewerb-2020/BW-KI-2020/models/"
 load_models = False
