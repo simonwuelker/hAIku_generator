@@ -1,25 +1,28 @@
-import os
-import sys
-import numpy as np
-import Tools
-count = 0
+import string
 
-def convert(path, store_in):
-	global count
-	for filename in os.listdir(path):
-		file_path = f"{path}/{filename}"
-		print(file_path)
-		if os.path.isfile(file_path):
-			print(f"File Nr.{count}: {filename}")
-			count += 1
-			try:
-				messages = Tools.encode(file_path, 12)
-				np.save(f"{store_in}/{filename}.npy", messages)
-			except:
-				os.remove(file_path)
+with open("haikus.csv", "r", encoding="utf8", errors="ignore") as infile:
+	data = infile.readlines()
 
-		#recursively go through subdirectories
-		elif os.path.isdir(file_path):
-			convert(file_path, store_in)
+result = []
+tags = ["tempslibres", "sballas", "img2poems", "twaiku", "haikuzao"]
 
-convert("/home/kepler/Desktop/midi_files", "/home/kepler/Desktop/notewise")
+alphabet = string.ascii_lowercase + "," + " " + "\n"
+
+for line in data:
+	new = ''.join(c for c in line if c.lower() in alphabet)
+	for i in range(100):
+		new = new.replace("  ", " ")
+		new = new.replace(", ", ",")
+		new = new.replace(" ,", ",")
+
+	for tag in tags:
+		index = new.find(tag)
+		if index != -1:
+			new = new[:index-1] + "\n"
+
+	result.append(new)
+
+with open("dataset.txt", "w", errors="ignore") as outfile:
+	outfile.writelines(result)
+
+print(set("".join(result)))
