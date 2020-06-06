@@ -20,7 +20,7 @@ class generator(nn.Module):
 
 		self.lstm = nn.LSTM(in_size, hidden_size, n_layers)
 
-		self.policy = nn.Sequential(
+		self.network = nn.Sequential(
 			nn.Linear(self.hidden_size, 128),
 			nn.ReLU(),
 			nn.Linear(128, 192),
@@ -35,35 +35,10 @@ class generator(nn.Module):
 		self.optimizer = optim.Adam(self.parameters(), lr)
 
 
-	def forward(self, sequence_length, batch_size, reset_hidden = True):
-		if reset_hidden:
-			self.reset_hidden(batch_size)
-
-		array = torch.empty(sequence_length)
-		state = torch.rand([self.batch_size, self.in_size])
-
-		for index in range(sequence_length):
-			lstm_out, self.hidden = self.lstm(state.view(1, self.batch_size, self.in_size), self.hidden)
-			output = torch.argmax(self.policy(lstm_out.view(self.hidden_size)))#view geändert
-
-			array[index] = output
-			state = torch.zeros(self.in_size)
-			state[output] = 1
-			
-		return array
+	def forward(self, input):
+		lstm_out, self.hidden = self.lstm(input, self.hidden)
+		output = self.network(lstm_out)
+		return output
 
 	def reset_hidden(self, batch_size):
-		self.hidden = (torch.rand(self.num_layers, batch_size, self.hidden_size), torch.rand(self.num_layers, batch_size, self.hidden_size))
-	
-	def play_example(self,length = 100, print_msg = True):
-		array = self(length)
-		
-		mid = Tools.decode(array)
-		port = mido.open_output()
-
-		for msg in mid.play():
-			if print_msg:
-				print(msg)
-				
-			port.send(msg)
-		mid.save("output.mid")
+		self.hidden = (torch.rand(self.n_layers, batch_size, self.hidden_size), torch.rand(self.n_layers, batch_size, self.hidden_size))
