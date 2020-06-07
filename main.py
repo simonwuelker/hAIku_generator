@@ -18,19 +18,19 @@ import matplotlib.collections as collections
 def example():
 	generator.reset_hidden(batch_size = 1)
 
-	seed = torch.rand(1, 1, len(Tools.alphabet))
-	haiku_length = np.random.randint(20, 30)
-	result = torch.zeros(haiku_length, 1, len(Tools.alphabet))
+	seed = torch.rand(1, 1, Tools.model.vector_size)
+	haiku_length = np.random.randint(10, 17)	#length boundaries are arbitrary
+	result = torch.zeros(haiku_length, 1, Tools.model.vector_size)
 
 	for index in range(haiku_length):
-		action = torch.argmax(generator(seed))
-		result[index, 0, action] = 1
+		result[index, 0] = generator(seed)
+		print(Q(result[:index]))
 
 	return result
 
-dataset_path = "haikus.csv"
+dataset_path = "dataset.txt"
 modelsave_path = "models/"
-load_models = True
+load_models = False
 
 torch.manual_seed(1)
 np.random.seed(1)
@@ -38,15 +38,15 @@ np.random.seed(1)
 dataloader = Tools.fetch_sample(dataset_path)
 
 #Init models
-generator = Generator.generator(in_size = len(Tools.alphabet), out_size = len(Tools.alphabet))
-discriminator = Discriminator.discriminator(in_size = len(Tools.alphabet))
+generator = Generator.generator(in_size = Tools.model.vector_size, out_size = Tools.model.vector_size)
+discriminator = Discriminator.discriminator(in_size = Tools.model.vector_size)
 
 
 if load_models:
 	#generator.load_state_dict(torch.load(f"{modelsave_path}Generator.pt"))
 	discriminator.load_state_dict(torch.load(f"{modelsave_path}Discriminator.pt"))
 
-start_state = torch.zeros(len(Tools.alphabet))
+start_state = torch.zeros(Tools.model.vector_size)
 
 #TRAINING
 discriminator.train()
@@ -55,6 +55,9 @@ generator.train()
 training_time = 10
 start_time = time.time()
 episode = 0
+
+print(example())
+assert False
 
 while time.time() < start_time + training_time:
 	#print progress

@@ -1,8 +1,11 @@
 import string
 import torch
 import numpy as np
+import gensim
 
-alphabet = list(string.ascii_lowercase + " " + ",")
+
+model = gensim.models.Word2Vec.load('models/word2vec.model')
+# alphabet = list(string.ascii_lowercase + " " + ",")
 
 def predMaxReward(state, length, discriminator):
 	#predMaxReward(state) judges the quality of the given state [0,1] by performing n rollouts
@@ -41,27 +44,21 @@ def fetch_sample(dataset_path):
 		for line in source:
 			yield encode(line)
 
-def removeInvalid(text):
-	result = ""
-	for char in text.lower():
-		if char in alphabet:
-			result += char
-	return result
 
 def encode(line):
-	input = removeInvalid(line)
-	result = torch.zeros(len(input), 1, len(alphabet))
-	for index, char in enumerate(input):
-		result[index, 0, alphabet.index(char)] = 1
+	result = torch.zeros(len(line.split()), 1, model.vector_size)
+	for index, word in enumerate(line.split()):
+		try:
+			result[index, 0] = torch.from_numpy(model[word])
+		except KeyError:
+			print(f"Unknown word {word}")
 
 	return result
 
 def decode(tensor):
 	assert tensor.shape[1] == 1	#can currently only handle one batch at a time
-	result = ""
-	for element in tensor:
-		result += alphabet[torch.argmax(element[0])]
 
+	result = "".join(model.wv.most_similar(positive = [element[0].numpy()])[0][0] + " " for element in tensor)
 	return result
 
 def progressBar(start_time, time_now, training_time, episode):
