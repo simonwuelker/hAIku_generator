@@ -27,8 +27,7 @@ class generator(nn.Module):
 			nn.ReLU(),
 			nn.Linear(192, 128),
 			nn.ReLU(),
-			nn.Linear(128, out_size),
-			nn.Softmax(dim = 0)
+			nn.Linear(128, out_size)
 			
 			)
 		self.criterion = nn.NLLLoss()
