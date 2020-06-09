@@ -30,7 +30,7 @@ class generator(nn.Module):
 			nn.Linear(128, out_size)
 			
 			)
-		self.criterion = nn.NLLLoss()
+		self.criterion = nn.MSELoss()
 		self.optimizer = optim.Adam(self.parameters(), lr)
 
 
