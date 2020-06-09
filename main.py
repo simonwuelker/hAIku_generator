@@ -6,31 +6,40 @@ import torch.nn as nn
 import torch.optim as optim 
 import numpy as np
 
-import time
-
 import Generator
 import Discriminator
 import Tools
 
 import matplotlib.pyplot as plt
 import matplotlib.collections as collections
+import time
+
 
 def example():
 	generator.reset_hidden(batch_size = 1)
-
-	seed = torch.rand(1, 1, Tools.model.vector_size)
+	
 	haiku_length = np.random.randint(10, 17)	#length boundaries are arbitrary
-	result = torch.zeros(haiku_length, 1, Tools.model.vector_size)
+	result = torch.zeros(haiku_length, batch_size, Tools.model.vector_size)
+	seed = torch.rand(1, batch_size, Tools.model.vector_size)
+	loss = 0
 
 	for index in range(haiku_length):
-		result[index, 0] = generator(seed)
-		print(Q(result[:index]))
+		output = generator(seed)
+		result[index, 0] = output
+		best = Tools.bestAction(result[:index], haiku_length, discriminator.forward)
+		loss += generator.criterion(output, best[0])
 
-	return result
+	#optimize generator
+	generator.optimizer.zero_grad()
+	loss.backward(retain_graph = True)
+	generator.optimizer.step()
+	print(Tools.decode(result))
+	return Tools.roundOutput(result)
 
 dataset_path = "dataset.txt"
 modelsave_path = "models/"
-load_models = False
+load_models = True
+batch_size = 1
 
 torch.manual_seed(1)
 np.random.seed(1)
@@ -43,7 +52,7 @@ discriminator = Discriminator.discriminator(in_size = Tools.model.vector_size)
 
 
 if load_models:
-	#generator.load_state_dict(torch.load(f"{modelsave_path}Generator.pt"))
+	generator.load_state_dict(torch.load(f"{modelsave_path}Generator.pt"))
 	discriminator.load_state_dict(torch.load(f"{modelsave_path}Discriminator.pt"))
 
 start_state = torch.zeros(Tools.model.vector_size)
@@ -52,12 +61,9 @@ start_state = torch.zeros(Tools.model.vector_size)
 discriminator.train()
 generator.train()
 
-training_time = 10
+training_time = 1000
 start_time = time.time()
 episode = 0
-
-print(example())
-assert False
 
 while time.time() < start_time + training_time:
 	#print progress
@@ -89,16 +95,16 @@ while time.time() < start_time + training_time:
 	discriminator.optimizer.step()
 	
 	#optimize generator
-	generator.optimizer.zero_grad()
-	loss_g.backward()
-	generator.optimizer.step()
+	# generator.optimizer.zero_grad()
+	# loss_g.backward()
+	# generator.optimizer.step()
 	
 #TESTING
 discriminator.eval()
 generator.eval()
 
-with torch.no_grad():
-	print(f"Generator outputted: {Tools.decode(example())}")
+# with torch.no_grad():
+# 	print(f"Generator outputted: {Tools.decode(example())}")
 
 torch.save(discriminator.state_dict(), f"{modelsave_path}Discriminator.pt")
 torch.save(generator.state_dict(), f"{modelsave_path}Generator.pt")
@@ -114,4 +120,3 @@ plt.xlabel("training duration")
 ax.legend()
 
 plt.show()
-print(discriminator.scores_fake)
