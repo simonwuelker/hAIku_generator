@@ -42,8 +42,7 @@ def bestAction(state, length, discriminator):
 		for batch_ix in range(batch_size):
 			if bests[batch_ix][1] < reward[batch_ix]:
 				bests = [action, reward[batch_ix]]
-
-
+	#print(f" best word was {model.wv.most_similar(positive = [bests[0].numpy()])}")
 	return bests
 
 def fetch_sample(dataset_path):
@@ -94,9 +93,9 @@ def rolloutPartialSequence(input, length):
 			batch[b] = torch.rand(model.vector_size)*3
 
 		output[index] = batch
-	output = roundOutput(output)
+
 	#print(f"after rollout: {decode(output)}")
-	return roundOutput(output) 	#round the outputs to the nearest character
+	return output 	#round the outputs to the nearest character
 
 def roundOutput(input):
 	output = torch.empty(input.shape)

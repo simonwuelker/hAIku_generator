@@ -34,11 +34,11 @@ def example():
 	loss.backward(retain_graph = True)
 	generator.optimizer.step()
 	print(Tools.decode(result))
-	return Tools.roundOutput(result)
+	return result
 
 dataset_path = "dataset.txt"
 modelsave_path = "models/"
-load_models = True
+load_models = False
 batch_size = 1
 
 torch.manual_seed(1)
@@ -61,7 +61,7 @@ start_state = torch.zeros(Tools.model.vector_size)
 discriminator.train()
 generator.train()
 
-training_time = 1000
+training_time = 5000
 start_time = time.time()
 episode = 0
 
