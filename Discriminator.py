@@ -42,4 +42,4 @@ class discriminator(nn.Module):
 
 		lstm_out, self.hidden = self.lstm(input, self.hidden)
 		output = self.network(lstm_out)
-		return output[-1]	#return the last score, incomplete sequence may be judged incorrectly
+		return torch.mean(output).view(1,1,1)	#return the last score, incomplete sequence may be judged incorrectly

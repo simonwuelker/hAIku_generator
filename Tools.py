@@ -7,13 +7,13 @@ model = gensim.models.Word2Vec.load('models/word2vec.model')
 def predMaxReward(state, length, discriminator):
 	#predMaxReward(state) judges the quality of the given state [0,1] by performing n rollouts
 	batch_size = state.shape[1]
-	simulations = 10	#increase simulations to increase reward accuracy
+	simulations = 50	#increase simulations to increase reward accuracy
 	maxScores = torch.tensor([float("-inf")]*batch_size)
 	for roll_ix in range(simulations):
 		completed = rolloutPartialSequence(state, length)	#complete sequence to allow the discriminator to judge it
 		scores = discriminator(completed)
 		#print(f"{decode(completed)} score {scores[-1]}")
-		scores = scores[-1,:]
+		#scores = scores[-1,:]
 		for batch_ix in range(batch_size):
 			if scores[batch_ix] > maxScores[batch_ix]:
 				maxScores[batch_ix] = scores[batch_ix]
@@ -48,7 +48,7 @@ def bestAction(state, length, discriminator):
 def fetch_sample(dataset_path):
 	with open(dataset_path, "r") as source:
 		for line in source:
-			yield encode(line)
+			yield encode(line)[:2]
 
 
 def encode(line):
