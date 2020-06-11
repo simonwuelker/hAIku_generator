@@ -2,7 +2,9 @@ import torch
 import numpy as np
 import gensim
 
-model = gensim.models.Word2Vec.load('models/word2vec.model')
+word2vec_model = gensim.models.Word2Vec.load("models/word2vec.model")
+word2vec_dict = gensim.corpora.Dictionary.load("models/word2vec.dict")
+#model.wv.most_similar should be avoided as much as possible since it is VERY slow
 
 def predMaxReward(state, length, discriminator):
 	#predMaxReward(state) judges the quality of the given state [0,1] by performing n rollouts
@@ -35,27 +37,27 @@ def bestAction(state, length, discriminator):
 
 	#action space is continuous therefore only simulate some actions
 	for _ in range(25):
-		action = torch.rand(model.vector_size)*3
+		action = torch.from_numpy(word2vec_model.wv[word2vec_dict[np.random.randint(len(word2vec_dict))]])	#randomly choose one word vector from vocab dict
 		new[-1] = action
-		#print(f"now simulating {model.wv.most_similar(positive = [action.detach().numpy()])} and thats nr {_}")
+		#print(f"now simulating {word2vec_model.wv.most_similar(positive = [action.detach().numpy()])} and thats nr {_}")
 		reward = predMaxReward(new, length, discriminator)
 		for batch_ix in range(batch_size):
 			if bests[batch_ix][1] < reward[batch_ix]:
 				bests = [action, reward[batch_ix]]
-	#print(f" best word was {model.wv.most_similar(positive = [bests[0].numpy()])}")
+	#print(f" best word was {word2vec_model.wv.most_similar(positive = [bests[0].numpy()])}")
 	return bests
 
 def fetch_sample(dataset_path):
 	with open(dataset_path, "r") as source:
 		for line in source:
-			yield encode(line)[:2]
+			yield encode("memorial day , a shadow for each , white cross")
 
 
 def encode(line):
-	result = torch.zeros(len(line.split()), 1, model.vector_size)
+	result = torch.zeros(len(line.split()), 1, word2vec_model.vector_size)
 	for index, word in enumerate(line.split()):
 		try:
-			result[index, 0] = torch.from_numpy(model[word])
+			result[index, 0] = torch.from_numpy(word2vec_model[word])
 		except KeyError:
 			print(f"Unknown word {word}")
 
@@ -64,7 +66,7 @@ def encode(line):
 def decode(tensor):
 	assert tensor.shape[1] == 1	#can currently only handle one batch at a time
 
-	result = "".join(model.wv.most_similar(positive = [element[0].detach().numpy()])[0][0] + " " for element in tensor)
+	result = "".join(word2vec_model.wv.most_similar(positive = [element[0].detach().numpy()])[0][0] + " " for element in tensor)
 	return result
 
 def progressBar(start_time, time_now, training_time, episode):
@@ -88,9 +90,9 @@ def rolloutPartialSequence(input, length):
 
 	#randomly fill in the remaining values(rollout)
 	for index in range(input.shape[0], length):
-		batch = torch.zeros(input.shape[1], model.vector_size)
+		batch = torch.zeros(input.shape[1], word2vec_model.vector_size)
 		for b in range(input.shape[1]):
-			batch[b] = torch.rand(model.vector_size)*3
+			batch[b] = torch.from_numpy(word2vec_model.wv[word2vec_dict[np.random.randint(len(word2vec_dict))]])	#randomly choose one word vector from vocab dict
 
 		output[index] = batch
 
@@ -101,5 +103,5 @@ def roundOutput(input):
 	output = torch.empty(input.shape)
 	for time_ix, timestep in enumerate(input):
 		for batch_ix, batch in enumerate(timestep):
-			output[time_ix, batch_ix] = torch.from_numpy(model.wv[model.wv.most_similar(positive = [batch.detach().numpy()])[0][0]])
+			output[time_ix, batch_ix] = torch.from_numpy(word2vec_model.wv[word2vec_model.wv.most_similar(positive = [batch.detach().numpy()])[0][0]])
 	return output

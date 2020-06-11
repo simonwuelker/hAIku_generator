@@ -14,13 +14,12 @@ import matplotlib.pyplot as plt
 import matplotlib.collections as collections
 import time
 
-
 def example():
 	generator.reset_hidden(batch_size = 1)
 	
-	haiku_length = 2#np.random.randint(8, 12)	#length boundaries are arbitrary
-	result = torch.zeros(haiku_length, batch_size, Tools.model.vector_size)
-	seed = torch.rand(1, batch_size, Tools.model.vector_size)
+	haiku_length = 10#np.random.randint(8, 12)	#length boundaries are arbitrary
+	result = torch.zeros(haiku_length, batch_size, Tools.word2vec_model.vector_size)
+	seed = torch.rand(1, batch_size, Tools.word2vec_model.vector_size)
 	loss = 0
 
 	for index in range(haiku_length):
@@ -57,26 +56,22 @@ np.random.seed(1)
 dataloader = Tools.fetch_sample(dataset_path)
 
 #Init models
-generator = Generator.generator(in_size = Tools.model.vector_size, out_size = Tools.model.vector_size)
-discriminator = Discriminator.discriminator(in_size = Tools.model.vector_size)
-
+generator = Generator.generator(in_size = Tools.word2vec_model.vector_size, out_size = Tools.word2vec_model.vector_size)
+discriminator = Discriminator.discriminator(in_size = Tools.word2vec_model.vector_size)
 
 if load_models:
 	generator.load_state_dict(torch.load(f"{modelsave_path}Generator.pt"))
 	discriminator.load_state_dict(torch.load(f"{modelsave_path}Discriminator.pt"))
 
-start_state = torch.zeros(Tools.model.vector_size)
+start_state = torch.zeros(Tools.word2vec_model.vector_size)
 
 #TRAINING
 discriminator.train()
 generator.train()
 
-training_time = 60
+training_time = 3000
 start_time = time.time()
 episode = 0
-
-print(Tools.predMaxReward(Tools.encode("concentrate concentrate"), 2, discriminator.forward))
-# assert False
 
 while time.time() < start_time + training_time:
 	#print progress
@@ -111,12 +106,8 @@ while time.time() < start_time + training_time:
 discriminator.eval()
 generator.eval()
 
-with torch.no_grad():
-	print(Tools.predMaxReward(Tools.encode("concentrate concentrate"), 2, discriminator.forward))
-	print("dies vs das")
-	print(fake_sample)
-	print(Tools.encode("concentrate concentrate"))
-	# print(f"Generator outputted: {Tools.decode(example())}")
+# with torch.no_grad():
+# 	print(Tools.predMaxReward(Tools.encode("concentrate concentrate"), 2, discriminator.forward))
 
 torch.save(discriminator.state_dict(), f"{modelsave_path}Discriminator.pt")
 torch.save(generator.state_dict(), f"{modelsave_path}Generator.pt")
