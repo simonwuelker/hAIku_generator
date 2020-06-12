@@ -39,12 +39,12 @@ def bestAction(state, length, discriminator):
 	for _ in range(25):
 		action = torch.from_numpy(word2vec_model.wv[word2vec_dict[np.random.randint(len(word2vec_dict))]])	#randomly choose one word vector from vocab dict
 		new[-1] = action
-		#print(f"now simulating {word2vec_model.wv.most_similar(positive = [action.detach().numpy()])} and thats nr {_}")
 		reward = predMaxReward(new, length, discriminator)
+		#print(f"reward: {reward}")
 		for batch_ix in range(batch_size):
 			if bests[batch_ix][1] < reward[batch_ix]:
 				bests = [action, reward[batch_ix]]
-	#print(f" best word was {word2vec_model.wv.most_similar(positive = [bests[0].numpy()])}")
+	#print(f" best word was {word2vec_model.wv.most_similar(positive = [bests[0].numpy()])} which should lead to {bests[1]}")
 	return bests
 
 def fetch_sample(dataset_path):
@@ -96,8 +96,7 @@ def rolloutPartialSequence(input, length):
 
 		output[index] = batch
 
-	#print(f"after rollout: {decode(output)}")
-	return output 	#round the outputs to the nearest character
+	return output
 
 def roundOutput(input):
 	output = torch.empty(input.shape)
