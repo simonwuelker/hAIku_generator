@@ -8,7 +8,7 @@ import mido
 import Tools
 
 class generator(nn.Module):
-	def __init__(self, in_size = 80, hidden_size = 128, n_layers = 2, out_size = 80, lr = 0.01):
+	def __init__(self, in_size = 80, hidden_size = 400, n_layers = 2, out_size = 80, lr = 0.01):
 		super(generator, self).__init__()
 
 		self.in_size = in_size
@@ -21,11 +21,11 @@ class generator(nn.Module):
 		self.lstm = nn.LSTM(in_size, hidden_size, n_layers)
 
 		self.network = nn.Sequential(
-			nn.Linear(self.hidden_size, 128),
+			nn.Linear(self.hidden_size, 400),
 			nn.ReLU(),
-			nn.Linear(128, 192),
+			nn.Linear(400, 300),
 			nn.ReLU(),
-			nn.Linear(192, 128),
+			nn.Linear(300, 128),
 			nn.ReLU(),
 			nn.Linear(128, out_size)
 			

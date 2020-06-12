@@ -18,36 +18,30 @@ def example():
 	generator.reset_hidden(batch_size = 1)
 	
 	haiku_length = 10#np.random.randint(8, 12)	#length boundaries are arbitrary
-	result = torch.zeros(haiku_length, batch_size, Tools.word2vec_model.vector_size)
-	seed = torch.rand(1, batch_size, Tools.word2vec_model.vector_size)
+	seed = torch.empty(haiku_length, batch_size, Tools.word2vec_model.vector_size)
+	single = torch.rand(batch_size, Tools.word2vec_model.vector_size)
+	for i in range(haiku_length):
+		seed[i] = single 
 	loss = 0
+	output = generator(seed)
+
+	optimal_haiku = torch.empty(haiku_length, 1, Tools.word2vec_model.vector_size)
 
 	for index in range(haiku_length):
-		output = generator(seed)
-		result[index, 0] = output
-		best = Tools.bestAction(result[:index], haiku_length, discriminator.forward)
+		best = Tools.bestAction(output[:index], haiku_length, discriminator.forward)
+		loss += generator.criterion(output[index, 0], best[0])
 
-		#Test if the generator found a better word than the rollout
-		#if Tools.predMaxReward(result[:index], haiku_length, discriminator.forward) < best[1]:
-		loss += generator.criterion(output, best[0])
-		#print(best[0].shape)
-		#previous = best[0].view(1,1,80)	#this is merely to confues the generator
-		# else:
-		# 	print("Bro generator is better than rollout its amaaaaaziniiiinnngggggg")
-		# 	print(f"Best word:{Tools.decode(best[0].view(1,1,80))} Reward:{best[1]}")
-		# 	print(f"Generator word:{Tools.decode(output)} Reward:{Tools.predMaxReward(result[:index], haiku_length, discriminator.forward)}")
-		# 	print()
-
-	#optimize generator
+	# #optimize generator
 	generator.optimizer.zero_grad()
 	loss.backward(retain_graph = True)
 	generator.optimizer.step()
-	print(Tools.decode(result))
-	return result
+
+	print(f"{Tools.decode(output)} Reward: {discriminator.forward(output).item()}")
+	return output
 
 dataset_path = "dataset.txt"
 modelsave_path = "models/"
-load_models = True
+load_models = False
 batch_size = 1
 
 torch.manual_seed(1)
@@ -69,7 +63,7 @@ start_state = torch.zeros(Tools.word2vec_model.vector_size)
 discriminator.train()
 generator.train()
 
-training_time = 3000
+training_time = 1000
 start_time = time.time()
 episode = 0
 
@@ -88,9 +82,11 @@ while time.time() < start_time + training_time:
 	#Save scores for evaluation
 	discriminator.scores_real.append(score_real.item())
 	discriminator.scores_fake.append(score_fake.item())
+	print(score_real, 1)
+	print(score_fake, 1)
 
-	#calculate losses(Discriminator minimizes, generator maximizes)
-	loss_d = torch.mean(-torch.log(1-score_fake) - torch.log(score_real))
+	#calculate losses(Discriminator minimizes, generator maximizes
+	loss_d = torch.mean(-torch.log(1.1-score_fake) - torch.log(score_real))
 	loss_g = torch.mean(torch.log(score_fake))
 
 	#save losses
@@ -99,7 +95,7 @@ while time.time() < start_time + training_time:
 
 	#optimize discriminator
 	discriminator.optimizer.zero_grad()
-	loss_d.backward()#retain_graph = True
+	loss_d.backward()
 	discriminator.optimizer.step()
 	
 #TESTING

@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 class discriminator(nn.Module):
-	def __init__(self, in_size, hidden_size = 128, out_size = 1, n_layers = 1,lr = 0.01, batch_size = 1):
+	def __init__(self, in_size, hidden_size = 400, out_size = 1, n_layers = 1,lr = 0.01, batch_size = 1):
 		super(discriminator, self).__init__()
 
 		self.in_size = in_size
@@ -16,13 +16,13 @@ class discriminator(nn.Module):
 		#LSTM Architecture
 		self.lstm = nn.LSTM(in_size, hidden_size, n_layers)
 		self.network = nn.Sequential(
-			nn.Linear(self.hidden_size, 128),
+			nn.Linear(self.hidden_size, 400),
 			nn.ReLU(),
-			nn.Linear(128, 192),
+			nn.Linear(400, 300),
 			nn.ReLU(),
-			nn.Linear(192, 64),
+			nn.Linear(300, 100),
 			nn.ReLU(),
-			nn.Linear(64, 1),
+			nn.Linear(100, 1),
 			nn.Sigmoid()
 			
 		)
