@@ -18,18 +18,20 @@ def example():
 	generator.reset_hidden(batch_size = 1)
 	
 	haiku_length = 10#np.random.randint(8, 12)	#length boundaries are arbitrary
-	seed = torch.empty(haiku_length, batch_size, Tools.word2vec_model.vector_size)
-	single = torch.rand(batch_size, Tools.word2vec_model.vector_size)
-	for i in range(haiku_length):
-		seed[i] = single 
+	output = torch.empty(haiku_length, batch_size, len(Tools.alphabet))
+	previous_output = torch.rand(1, batch_size, len(Tools.alphabet))
 	loss = 0
-	output = generator(seed)
-
-	optimal_haiku = torch.empty(haiku_length, 1, Tools.word2vec_model.vector_size)
-
+	
+	#generate sequence
 	for index in range(haiku_length):
-		best = Tools.bestAction(output[:index], haiku_length, discriminator.forward)
-		loss += generator.criterion(output[index, 0], best[0])
+		probs = generator(previous_output)
+		result = Tools.roundOutput(probs)
+		output[index] = result
+		previous_output = result
+		target = torch.argmax(Tools.Q(output[:index], haiku_length, discriminator)).unsqueeze(0).float()	#Q function is slow as heck
+
+		loss += generator.criterion(probs[0], target)#since only one element is fed at a time, sequence dimension is redundant
+
 
 	# #optimize generator
 	generator.optimizer.zero_grad()
@@ -50,14 +52,14 @@ np.random.seed(1)
 dataloader = Tools.fetch_sample(dataset_path)
 
 #Init models
-generator = Generator.generator(in_size = Tools.word2vec_model.vector_size, out_size = Tools.word2vec_model.vector_size)
-discriminator = Discriminator.discriminator(in_size = Tools.word2vec_model.vector_size)
+generator = Generator.generator(in_size = len(Tools.alphabet), out_size = len(Tools.alphabet))
+discriminator = Discriminator.discriminator(in_size = len(Tools.alphabet))
 
 if load_models:
 	generator.load_state_dict(torch.load(f"{modelsave_path}Generator.pt"))
 	discriminator.load_state_dict(torch.load(f"{modelsave_path}Discriminator.pt"))
 
-start_state = torch.zeros(Tools.word2vec_model.vector_size)
+start_state = torch.zeros(len(Tools.alphabet))
 
 #TRAINING
 discriminator.train()
