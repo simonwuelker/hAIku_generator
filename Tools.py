@@ -1,8 +1,9 @@
 import torch
 import numpy as np
 import string
+import sys
 
-alphabet = string.ascii_lowercase + "," + " "
+alphabet = "halo"#string.ascii_lowercase + "," + " "
 char_to_ix = {char:ix for ix, char in enumerate(alphabet)}
 ix_to_char = {ix:char for ix, char in enumerate(alphabet)}
 
@@ -47,7 +48,7 @@ def Q(state, length, discriminator):
 def fetch_sample(dataset_path):
 	with open(dataset_path, "r") as source:
 		for line in source:
-			yield encode(["memorial day , a shadow for each , white cross"])
+			yield encode(["hallo"])
 
 
 def encode(lines):
@@ -83,6 +84,7 @@ def progressBar(start_time, time_now, training_time, episode):
 	result += f"| {round(((elapsed/training_time)*100), 1)}% - ({round(elapsed, 1)}s elapsed) - Episode Nr.{episode}"
 	print(result)
 	print()
+	sys.stdout.flush()# Linux sometimes buffers output. bad. prevent.
 	
 def rolloutPartialSequence(input, length):
 	output = torch.empty(length, input.shape[1], input.shape[2])
@@ -102,7 +104,6 @@ def rolloutPartialSequence(input, length):
 
 def roundOutput(input):
 	output = torch.zeros(input.shape)
-	for time_ix, timestep in enumerate(input):
-		for batch_ix, batch in enumerate(timestep):
-			output[time_ix, batch_ix, torch.argmax(input[time_ix, batch_ix])] = 1
+	for batch_ix, batch in enumerate(input):
+		output[batch_ix, torch.argmax(batch)] = 1
 	return output

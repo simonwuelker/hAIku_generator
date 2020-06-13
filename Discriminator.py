@@ -34,7 +34,8 @@ class discriminator(nn.Module):
 		self.scores_fake = []
 
 	def reset_hidden(self, batch_size):
-		self.hidden = (torch.rand(self.n_layers, batch_size, self.hidden_size), torch.rand(self.n_layers, batch_size, self.hidden_size))
+		#discriminator hidden is not random
+		self.hidden = (torch.zeros(self.n_layers, batch_size, self.hidden_size), torch.zeros(self.n_layers, batch_size, self.hidden_size))
 	
 	def forward(self, input):
 		batch_size = input.shape[1]

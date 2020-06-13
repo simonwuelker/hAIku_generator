@@ -8,7 +8,7 @@ import mido
 import Tools
 
 class generator(nn.Module):
-	def __init__(self, in_size = 80, hidden_size = 400, n_layers = 2, out_size = 80, lr = 0.01):
+	def __init__(self, in_size = 80, hidden_size = 400, n_layers = 2, out_size = 80, lr = 0.04):
 		super(generator, self).__init__()
 
 		self.in_size = in_size
@@ -30,12 +30,15 @@ class generator(nn.Module):
 			nn.Linear(128, out_size)
 			
 			)
-		self.criterion = nn.MSELoss()
+		self.criterion = nn.NLLLoss()
+		self.MSE = nn.MSELoss()
 		self.optimizer = optim.Adam(self.parameters(), lr)
 
 
 	def forward(self, input):
+		assert input.shape[0] == 1	#sequence dimension might mess with the lin layer
 		lstm_out, self.hidden = self.lstm(input, self.hidden)
+		lstm_out = lstm_out.view(lstm_out.shape[0]*lstm_out.shape[1], self.hidden_size)
 		output = self.network(lstm_out)
 		return output
 
