@@ -27,7 +27,9 @@ class generator(nn.Module):
 			nn.ReLU(),
 			nn.Linear(300, 128),
 			nn.ReLU(),
-			nn.Linear(128, out_size)
+			nn.Linear(128, out_size),
+			#nn.Softmax(dim=1)
+			nn.LogSoftmax(dim=1)	#the log- part is added later in the custom NLL Function(Tools.py)
 			
 			)
 		self.criterion = nn.NLLLoss()

@@ -1,5 +1,3 @@
-#toller blogpost der erklärt wie der rl agent im generator funktioniert:http://karpathy.github.io/2016/05/31/rl/
-#https://medium.com/@jonathan_hui/gan-why-it-is-so-hard-to-train-generative-advisory-networks-819a86b3750b
 #hAIku poem generator
 import torch
 import torch.nn as nn
@@ -16,6 +14,7 @@ import matplotlib.collections as collections
 import time
 
 def example():
+	"""returns one generated sequence and optimizes the generator"""
 	generator.reset_hidden(batch_size = 1)
 	
 	haiku_length = 5#np.random.randint(8, 12)	#length boundaries are arbitrary
@@ -33,11 +32,21 @@ def example():
 		result = Tools.roundOutput(probs)
 		output[index] = result
 		previous_output = result.unsqueeze(0)
-		target = torch.argmax(Tools.Q(output[:index], haiku_length, discriminator)).unsqueeze(0)#Q function is slow as heck
-		#loss += generator.criterion(probs, target)
-		optimal[index, 0, target] = 1
+		target = Tools.Q(output[:index], haiku_length, discriminator)#Q function is slow as heck
+		# print(target.shape, target)
+		# print(probs.shape, probs)
+		x = torch.zeros(target.shape[0])
+		print(target.shape)
+		for a in range(target.shape[0]):
+			x[a] = torch.argmax(target[a])
+		loss +=	Tools.NLLLoss_baseline(probs, target)
 
-	loss = generator.MSE(raw_output, optimal)
+		# loss += generator.criterion(probs, torch.argmax(target.squeeze()).unsqueeze(0))	#hiermit gehts
+		# loss +=	Tools.NLLLoss(probs, torch.argmax(target).unsqueeze(0))		#hiermit auch
+		optimal[index, 0, torch.argmax(target)] = 1
+
+
+	# loss = generator.MSE(raw_output, optimal)
 	#optimize generator
 	generator.optimizer.zero_grad()
 	loss.backward()
@@ -127,3 +136,4 @@ finally:
 	ax.legend()
 
 	plt.show()
+
