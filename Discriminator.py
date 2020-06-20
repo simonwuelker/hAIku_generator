@@ -39,6 +39,7 @@ class discriminator(nn.Module):
 	
 	def forward(self, input):
 		batch_size = input.shape[1]
+		assert batch_size == 1	#return fails with batch size > 1
 		self.reset_hidden(batch_size)
 
 		lstm_out, self.hidden = self.lstm(input, self.hidden)

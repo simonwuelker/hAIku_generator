@@ -7,7 +7,16 @@ alphabet = "halo"#string.ascii_lowercase + "," + " "
 char_to_ix = {char:ix for ix, char in enumerate(alphabet)}
 ix_to_char = {ix:char for ix, char in enumerate(alphabet)}
 distribution = np.array([0.2, 0.2, 0.4, 0.2])#np.load("distribution.npy")
-# softm = torch.nn.Softmax(dim = 1)
+softm = torch.nn.Softmax(dim = 1)
+logSoftm = torch.nn.LogSoftmax(dim=1)
+
+def betterSoftmax(input):
+	"""calculates a better version of softmax which is more accurate but only works for positive numbers"""
+	output = torch.empty(input.shape)
+	for batch_ix, batch in enumerate(input):
+		output[batch_ix] = batch/torch.sum(batch)
+	return output
+
 
 def predMaxReward(state, length, discriminator):
 	"""predMaxReward(state) judges the quality of the given state by performing n rollouts"""
@@ -51,7 +60,7 @@ def Q(state, length, discriminator):
 
 	output = output.transpose(0, 1)
 
-	return output
+	return logSoftm(output)
 
 def fetch_sample(dataset_path):
 	with open(dataset_path, "r") as source:
@@ -104,8 +113,10 @@ def rolloutPartialSequence(input, length):
 	for index in range(input.shape[0], length):
 		batch = torch.zeros(input.shape[1], len(alphabet))
 		for b in range(input.shape[1]):
+			#-1 is bei random action falsch
+			action = np.random.randint(0, len(alphabet)-1)#np.random.choice(np.arange(len(alphabet)), p = distribution)
 			batch[b] = torch.zeros(len(alphabet))
-			batch[b][np.random.randint(0, len(alphabet)-1)] = 1
+			batch[b][action] = 1
 
 		output[index] = batch
 	return output
@@ -116,15 +127,7 @@ def roundOutput(input):
 		output[batch_ix, torch.argmax(batch)] = 1
 	return output
 
-def NLLLoss(input, target):
-	batch_size = input.shape[0]
-	result = torch.empty(batch_size)
-	for batch_ix in range(batch_size):
-		result[batch_ix] = -1* input[batch_ix, target[batch_ix]]
-		
-	return torch.mean(result)
-
-def NLLLoss_baseline(input, target):
+def NLLLoss(input, target, use_baseline = False):
 	"""
 	Computes the NLLLoss customized with a baseline
 
@@ -137,9 +140,10 @@ def NLLLoss_baseline(input, target):
 	assert input.shape == target.shape
 
 	# #target values are always positive, raising the baseline introduces negative rewards
-	# baseline = torch.mean(target, dim=1)
-	# reduced = torch.sub(target, baseline.unsqueeze(1))
-
+	if use_baseline:
+		baseline = torch.mean(target, dim=1)
+		target = torch.sub(target, baseline.unsqueeze(1))
+		
 	batch_size = input.shape[0]
 	result = torch.empty(batch_size)
 	for batch_ix in range(batch_size):

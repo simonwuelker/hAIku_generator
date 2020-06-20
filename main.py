@@ -10,7 +10,6 @@ import Discriminator
 import Tools
 
 import matplotlib.pyplot as plt
-import matplotlib.collections as collections
 import time
 
 def example():
@@ -33,16 +32,19 @@ def example():
 		output[index] = result
 		previous_output = result.unsqueeze(0)
 		target = Tools.Q(output[:index], haiku_length, discriminator)#Q function is slow as heck
-		# print(target.shape, target)
-		# print(probs.shape, probs)
-		x = torch.zeros(target.shape[0])
-		print(target.shape)
-		for a in range(target.shape[0]):
-			x[a] = torch.argmax(target[a])
-		loss +=	Tools.NLLLoss_baseline(probs, target)
 
-		# loss += generator.criterion(probs, torch.argmax(target.squeeze()).unsqueeze(0))	#hiermit gehts
-		# loss +=	Tools.NLLLoss(probs, torch.argmax(target).unsqueeze(0))		#hiermit auch
+		x = torch.zeros(target.shape)
+		for batch in range(target.shape[0]):
+			a = torch.zeros(target.shape[1])
+			a[torch.argmax(target[batch])] = 1
+			x[batch] = a
+
+		# loss += Tools.NLLLoss(probs, x)
+		# loss += generator.criterion(probs, target)	#hiermit gehts
+		loss += generator.MSE(probs, target)
+		# loss +=	Tools.NLLLoss(probs, torch.argmax(target).unsqueeze(0))
+		# print(f"{Tools.NLLLoss_baseline(probs, x)}=={Tools.NLLLoss(probs, torch.argmax(target).unsqueeze(0))}")
+		# assert False
 		optimal[index, 0, torch.argmax(target)] = 1
 
 
@@ -54,11 +56,11 @@ def example():
 
 	print(f"{Tools.decode(output)} Reward: {discriminator.forward(output).item()}")
 	print(f"{Tools.decode(optimal)} Reward: {discriminator.forward(optimal).item()}")
-	return optimal
+	return output
 
 dataset_path = "dataset.txt"
 modelsave_path = "models/"
-load_models = False
+load_models = True
 batch_size = 1
 
 torch.manual_seed(1)
@@ -74,7 +76,12 @@ if load_models:
 	generator.load_state_dict(torch.load(f"{modelsave_path}Generator.pt"))
 	discriminator.load_state_dict(torch.load(f"{modelsave_path}Discriminator.pt"))
 
-start_state = torch.zeros(len(Tools.alphabet))
+# print(Tools.Q(Tools.encode([""]), 5, discriminator))
+# print(Tools.Q(Tools.encode(["h"]), 5, discriminator))
+# print(Tools.Q(Tools.encode(["ha"]), 5, discriminator))
+# print(Tools.Q(Tools.encode(["hal"]), 5, discriminator))
+# print(Tools.Q(Tools.encode(["hall"]), 5, discriminator))
+# assert False
 
 #TRAINING
 discriminator.train()
@@ -99,15 +106,11 @@ try:
 		#Save scores for evaluation
 		discriminator.scores_real.append(score_real.item())
 		discriminator.scores_fake.append(score_fake.item())
-		print(f"real:{score_real}")
-		print(f"fake:{score_fake}")
+		print(f"real:{score_real}, {Tools.decode(real_sample)}")
+		print(f"fake:{score_fake}, {Tools.decode(fake_sample)}")
 
-		#calculate losses(Discriminator minimizes, generator maximizes
-		loss_d = torch.mean(-torch.log(1.01-score_fake) - torch.log(score_real))
-		loss_g = torch.mean(torch.log(score_fake))
-
-		#save losses
-		generator.losses.append(loss_g.item())
+		#calculate loss
+		loss_d = torch.mean(-torch.log(1-score_fake) - torch.log(score_real))
 		discriminator.losses.append(loss_d.item())
 
 		#optimize discriminator

@@ -28,11 +28,10 @@ class generator(nn.Module):
 			nn.Linear(300, 128),
 			nn.ReLU(),
 			nn.Linear(128, out_size),
-			#nn.Softmax(dim=1)
-			nn.LogSoftmax(dim=1)	#the log- part is added later in the custom NLL Function(Tools.py)
+			nn.LogSoftmax(dim=1)	#this log- part replaces the log in the custom NLL Function(Tools.py)
 			
 			)
-		self.criterion = nn.NLLLoss()
+		self.criterion = nn.PoissonNLLLoss(log_input = True)
 		self.MSE = nn.MSELoss()
 		self.optimizer = optim.Adam(self.parameters(), lr)
 
