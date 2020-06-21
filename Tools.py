@@ -1,10 +1,42 @@
 import torch
 import numpy as np
-import gensim
 
-word2vec_model = gensim.models.Word2Vec.load("models/word2vec.model")
-word2vec_dict = gensim.corpora.Dictionary.load("models/word2vec.dict")
-#model.wv.most_similar should be avoided as much as possible since it is VERY slow
+class DataHandler:
+	def __init__(self, dataset_path):
+		self.dataset_path = dataset_path
+
+		#load data
+		with open(dataset_path, "r") as infile:
+			self.vocab = set(infile.read().split())
+			self.word_to_ix = {word:ix for ix, word in enumerate(vocab)}
+			self.ix_to_word = {ix:word for ix, word in enumerate(vocab)}
+
+	def __next__(self):
+		with open(dataset_path, "r") as source:
+			for line in source:
+				yield encode(["memorial day , a shadow for each , white cross"])
+
+	def toTensor(self, lines):
+		"""converts a given list of lines to a tensor containing all the word indices(all lines have to be of the same length)"""
+		assert isinstance(list, lines)
+
+		batch_size = len(lines)
+		result = torch.zeros(batch_size, len(lines[0]))
+		
+		for batch_ix in range(batch_size):
+			for word_ix in range(len(lines[batch_ix])):
+				result[batch_ix, word_ix] = self.word_to_ix[lines[batch_ix][word_ix]]
+
+		return result
+
+	def toText(self, tensor):
+		"""converts a given tensor to a list of lines"""
+		assert tensor.shape[1] == 1	#can currently only handle one batch at a time
+
+		result = "".join(word2vec_model.wv.most_similar(positive = [element[0].detach().numpy()])[0][0] + " " for element in tensor)
+		return result
+
+
 
 def predMaxReward(state, length, discriminator):
 	#predMaxReward(state) judges the quality of the given state [0,1] by performing n rollouts
@@ -46,28 +78,6 @@ def bestAction(state, length, discriminator):
 				bests = [action, reward[batch_ix]]
 	#print(f" best word was {word2vec_model.wv.most_similar(positive = [bests[0].numpy()])} which should lead to {bests[1]}")
 	return bests
-
-def fetch_sample(dataset_path):
-	with open(dataset_path, "r") as source:
-		for line in source:
-			yield encode("memorial day , a shadow for each , white cross")
-
-
-def encode(line):
-	result = torch.zeros(len(line.split()), 1, word2vec_model.vector_size)
-	for index, word in enumerate(line.split()):
-		try:
-			result[index, 0] = torch.from_numpy(word2vec_model[word])
-		except KeyError:
-			print(f"Unknown word {word}")
-
-	return result
-
-def decode(tensor):
-	assert tensor.shape[1] == 1	#can currently only handle one batch at a time
-
-	result = "".join(word2vec_model.wv.most_similar(positive = [element[0].detach().numpy()])[0][0] + " " for element in tensor)
-	return result
 
 def progressBar(start_time, time_now, training_time, episode):
 	bar_length = 20

@@ -12,25 +12,29 @@ import matplotlib.pyplot as plt
 import time
 
 def example():
+	"""returns one generated sequence and optimizes the generator"""
 	generator.reset_hidden(batch_size = 1)
 	
-	haiku_length = 10#np.random.randint(8, 12)	#length boundaries are arbitrary
-	seed = torch.empty(haiku_length, batch_size, Tools.word2vec_model.vector_size)
-	single = torch.rand(batch_size, Tools.word2vec_model.vector_size)
-	for i in range(haiku_length):
-		seed[i] = single 
+	haiku_length = 5#np.random.randint(8, 12)	#length boundaries are arbitrary
+	output = torch.empty(haiku_length, batch_size, len(Tools.alphabet))
+	raw_output = torch.empty(haiku_length, batch_size, len(Tools.alphabet))
+	previous_output = torch.rand(1, batch_size, len(Tools.alphabet))
+	
+	#generate sequence
 	total_loss = 0
-	output = generator(seed)
-
-	optimal_haiku = torch.empty(haiku_length, 1, Tools.word2vec_model.vector_size)
-
 	for index in range(haiku_length):
-		best = Tools.bestAction(output[:index], haiku_length, discriminator.forward)
-		total_loss += generator.criterion(output[index, 0], best[0])
+		probs = generator(previous_output)
+		raw_output[index] = probs
+		result = Tools.roundOutput(probs)
+		output[index] = result
+		previous_output = result.unsqueeze(0)
+		target = Tools.Q(output[:index], haiku_length, discriminator)#Q function is slow as heck
 
-	# #optimize generator
+		total_loss += generator.MSE(probs, target)
+
+	#optimize generator
 	generator.optimizer.zero_grad()
-	total_loss.backward(retain_graph = True)
+	total_loss.backward()
 	generator.optimizer.step()
 
 	print(f"{Tools.decode(output)} Reward: {discriminator.forward(output).item()}")
@@ -83,17 +87,16 @@ try:
 		print(score_fake, 1)
 
 		#calculate losses(Discriminator minimizes, generator maximizes
-		loss_d = torch.mean(-torch.log(1.1-score_fake) - torch.log(score_real))
-		loss_g = torch.mean(torch.log(score_fake))
+		loss_d = torch.mean(-torch.log(1-score_fake) - torch.log(score_real))
 
 		#save losses
-		generator.losses.append(loss_g.item())
 		discriminator.losses.append(loss_d.item())
 
 		#optimize discriminator
 		discriminator.optimizer.zero_grad()
 		loss_d.backward()
 		discriminator.optimizer.step()
+
 finally:	
 	#TESTING
 	discriminator.eval()
