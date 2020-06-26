@@ -43,5 +43,7 @@ class discriminator(nn.Module):
 		self.reset_hidden(batch_size)
 
 		lstm_out, self.hidden = self.lstm(input, self.hidden)
+		#WARUM HAT DAS HIER OHNE DAS RESHAPE FUNKTIONIERT
+		lstm_out = lstm_out.reshape([-1, self.hidden_size])
 		output = self.network(lstm_out)
 		return torch.mean(output).view(1,1,1)	#return the last score, incomplete sequence may be judged incorrectly

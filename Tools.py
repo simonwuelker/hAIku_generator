@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import string
 import sys
+import random
 
 alphabet = "halo"#string.ascii_lowercase + "," + " "
 char_to_ix = {char:ix for ix, char in enumerate(alphabet)}
@@ -16,7 +17,6 @@ def betterSoftmax(input):
 	for batch_ix, batch in enumerate(input):
 		output[batch_ix] = batch/torch.sum(batch)
 	return output
-
 
 def predMaxReward(state, length, discriminator):
 	"""predMaxReward(state) judges the quality of the given state by performing n rollouts"""
@@ -34,7 +34,7 @@ def predMaxReward(state, length, discriminator):
 
 
 def expandTree(state, action):
-	"""expandTree is the state transition function δ"""
+	"""expandTree is the equivalent of the state transition function δ"""
 	batch_size = state.shape[1]
 	seq_length = state.shape[0]
 	output = torch.zeros(seq_length+1, batch_size, len(alphabet))
@@ -45,22 +45,39 @@ def expandTree(state, action):
 def Q(state, length, discriminator):
 	"""Q(state) returns the quality of all possible actions that can be performed in the given state"""
 	batch_size = state.shape[1]
-	output = torch.zeros(len(alphabet), batch_size)	#dimensions are wrong, will be transposed later
+	
 
 	# simulations = 2	#nr of actions to simulate
-	# for _ in range(simulations):
-	# 	print(f"action nr.{_}")
-	# 	action = np.random.choice(np.arange(len(alphabet)), p = distribution)	#randomly sample one char based on the distribution from the dataset
-	# 	output[action] = predMaxReward(expandTree(state, action), length, discriminator)
-	# #generator still expects every single action to be simulated
-	# output = output.transpose(0, 1)
+	# output = torch.zeros(simulations, batch_size)-1	#dimensions are wrong, will be transposed later
+	# simulated = []	#keeps track of all the action that have been simulated
+	# unique_simulations = 0	#counts all unique simulations
 
+	# for _ in range(simulations):
+	# 	#randomly sample one char based on the distribution from the dataset
+	# 	action = np.random.choice(np.arange(len(alphabet)), p = distribution)
+	# 	estimated_reward = predMaxReward(expandTree(state, action), length, discriminator)
+
+	# 	#check if the action has already been simulated
+	# 	if action in simulated:
+	# 		index = simulated.index(action)
+	# 		#action has beeen simulated twice so we need to check whether our new value is higher than the old one
+	# 		if estimated_reward > output[index]:
+	# 			output[index] = estimated_reward
+	# 	else:
+	# 		output[unique_simulations] = estimated_reward
+	# 		simulated.append(action)
+	# 		unique_simulations += 1
+
+	# 	print(f"action nr.{_}: {action}")
+	# print(output, unique_simulations)
+	
+	output = torch.zeros(len(alphabet), batch_size)	#dimensions are wrong, will be transposed later
 	for action in range(len(alphabet)):
 		output[action] = predMaxReward(expandTree(state, action), length, discriminator)
 
 	output = output.transpose(0, 1)
-
-	return logSoftm(output)
+	
+	return output#simulated, output[:,:unique_simulations]
 
 def fetch_sample(dataset_path):
 	with open(dataset_path, "r") as source:
@@ -87,22 +104,6 @@ def decode(input):
 	for batch_ix in range(batch_size):
 		result.append("".join([ix_to_char[torch.argmax(vector).item()] for vector in input[batch_ix]]))
 	return result
-
-def progressBar(start_time, time_now, training_time, episode):
-	"""prints a nice bar that shows the training progress"""
-	bar_length = 20
-	elapsed = time_now - start_time
-	num_filled = int(round((elapsed/training_time)*bar_length, 0))
-	result = "|"
-
-	result += "█"*num_filled
-
-	result += "―"*(bar_length-num_filled)
-
-	result += f"| {round(((elapsed/training_time)*100), 1)}% - ({round(elapsed, 1)}s elapsed) - Episode Nr.{episode}"
-	print(result)
-	print()
-	sys.stdout.flush()# Linux sometimes buffers output. bad. prevent.
 	
 def rolloutPartialSequence(input, length):
 	"""takes a incomplete sequence and appends n random actions"""
@@ -113,8 +114,7 @@ def rolloutPartialSequence(input, length):
 	for index in range(input.shape[0], length):
 		batch = torch.zeros(input.shape[1], len(alphabet))
 		for b in range(input.shape[1]):
-			#-1 is bei random action falsch
-			action = np.random.randint(0, len(alphabet)-1)#np.random.choice(np.arange(len(alphabet)), p = distribution)
+			action = np.random.choice(np.arange(len(alphabet)), p = distribution)
 			batch[b] = torch.zeros(len(alphabet))
 			batch[b][action] = 1
 
@@ -139,16 +139,15 @@ def NLLLoss(input, target, use_baseline = False):
 	"""
 	assert input.shape == target.shape
 
-	# #target values are always positive, raising the baseline introduces negative rewards
+	# target values are always positive, raising the baseline introduces negative rewards
 	if use_baseline:
 		baseline = torch.mean(target, dim=1)
 		target = torch.sub(target, baseline.unsqueeze(1))
-		
+	
+	#actually calculate the loss
 	batch_size = input.shape[0]
 	result = torch.empty(batch_size)
 	for batch_ix in range(batch_size):
 		result[batch_ix] = -1 * torch.dot(input[batch_ix], target[batch_ix])
 		
 	return torch.mean(result)
-
-#print(NLLLoss(torch.tensor([[0.2, 0.5, 0.3], [0, 0.1, 0.9]]), torch.tensor([[1.0, 0, 0], [0, 0, 1.0]])))

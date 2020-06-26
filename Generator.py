@@ -28,10 +28,11 @@ class generator(nn.Module):
 			nn.Linear(300, 128),
 			nn.ReLU(),
 			nn.Linear(128, out_size),
-			nn.LogSoftmax(dim=1)	#this log- part replaces the log in the custom NLL Function(Tools.py)
+			nn.LogSoftmax(dim=1)
+			#LogSoftmax is applied later over the characters simulated by the Q Function
 			
 			)
-		self.criterion = nn.PoissonNLLLoss(log_input = True)
+		self.criterion = nn.NLLLoss()
 		self.MSE = nn.MSELoss()
 		self.optimizer = optim.Adam(self.parameters(), lr)
 
@@ -39,7 +40,7 @@ class generator(nn.Module):
 	def forward(self, input):
 		assert input.shape[0] == 1	#sequence dimension might mess with the lin layer
 		lstm_out, self.hidden = self.lstm(input, self.hidden)
-		lstm_out = lstm_out.view(lstm_out.shape[0]*lstm_out.shape[1], self.hidden_size)
+		lstm_out = lstm_out.reshape([-1, self.hidden_size])
 		output = self.network(lstm_out)
 		return output
 
