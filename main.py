@@ -116,10 +116,9 @@ finally:
 	# ax.plot(discriminator.scores_real, label = "Real")
 	# ax.plot(discriminator.scores_fake, label = "Fake")
 	ax.plot(generator.losses[2:], label = "Generator Loss")
-	plt.ylabel("Scores")
+	plt.ylabel("Loss")
 	plt.xlabel("training duration")
 	ax.legend()
 
 	plt.show()
 	print(generator.losses)
-
