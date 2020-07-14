@@ -67,7 +67,7 @@ generator = Generator.generator(in_size = len(Tools.alphabet), out_size = len(To
 discriminator = Discriminator.discriminator(in_size = len(Tools.alphabet))
 
 if load_models:
-	generator.load_state_dict(torch.load(f"{modelsave_path}Generator.pt"))
+	generator.load_state_dict(torch.load(f"{modelsave_path}Generator_pretrain.pt"))
 	discriminator.load_state_dict(torch.load(f"{modelsave_path}Discriminator.pt"))
 
 #TRAINING

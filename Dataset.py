@@ -2,7 +2,7 @@ import torch
 from collections import Counter
 
 class Dataset(torch.utils.data.Dataset):
-	def __init__(self, path = "data/dataset.txt"):
+	def __init__(self, path = "dataset.txt"):
 
 		self.path = path
 		self.data, self.unique_tokens = self.loadData()
@@ -16,7 +16,7 @@ class Dataset(torch.utils.data.Dataset):
 	def __getitem__(self, index):
 		input = " ".join(self.data[index].split()[:-1])	#remove last word from haiku
 		target = " ".join(self.data[index].split()[1:])	#remove first word from target
-		return self.encode([input]), self.encode([target])
+		return self.encode([input]).view(-1, 1, 1), self.encode([target]).view(-1, 1, 1)
 
 	def loadData(self):
 		with open(self.path, "r", encoding="utf8", errors="ignore") as infile:

@@ -8,17 +8,19 @@ import mido
 import Tools
 
 class generator(nn.Module):
-	def __init__(self, in_size = 80, hidden_size = 400, n_layers = 2, out_size = 80, lr = 0.04):
+	def __init__(self, in_size = 80, hidden_size = 400, n_layers = 2, out_size = 80, lr = 0.04, embedding_dim=50):
 		super(generator, self).__init__()
 
 		self.in_size = in_size
 		self.hidden_size = hidden_size
 		self.n_layers = n_layers
 		self.out_size = out_size
+		self.embedding_dim = embedding_dim
 		self.lr = lr
 		self.losses = []
 
-		self.lstm = nn.LSTM(in_size, hidden_size, n_layers)
+		self.embedding = nn.Embedding(self.in_size, self.embedding_dim)
+		self.lstm = nn.LSTM(self.embedding_dim, self.hidden_size, self.n_layers)
 
 		self.network = nn.Sequential(
 			nn.Linear(self.hidden_size, 400),
@@ -28,19 +30,17 @@ class generator(nn.Module):
 			nn.Linear(300, 128),
 			nn.ReLU(),
 			nn.Linear(128, out_size),
-			nn.LogSoftmax(dim=1)
-			#LogSoftmax is applied later over the characters simulated by the Q Function
-			
+			nn.LogSoftmax(dim=1)			
 			)
 		self.criterion = nn.NLLLoss()
-		self.MSE = nn.MSELoss()
-		self.optimizer = optim.Adam(self.parameters(), lr)
+		self.optimizer = optim.SGD(self.parameters(), lr)
 
 
 	def forward(self, input):
-		assert input.shape[0] == 1	#sequence dimension might mess with the lin layer
-		lstm_out, self.hidden = self.lstm(input, self.hidden)
-		lstm_out = lstm_out.reshape([-1, self.hidden_size])
+		seq_length = input.shape[0]
+		output = self.embedding(input).view(seq_length, -1, self.embedding_dim)
+		lstm_out, self.hidden = self.lstm(output, self.hidden)
+		lstm_out = lstm_out.view([-1, self.hidden_size])
 		output = self.network(lstm_out)
 		return output
 
