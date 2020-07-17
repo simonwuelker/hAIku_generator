@@ -34,12 +34,16 @@ class discriminator(nn.Module):
 		self.scores_fake = []
 
 	def reset_hidden(self, batch_size):
-		self.hidden = (torch.rand(self.n_layers, batch_size, self.hidden_size), torch.rand(self.n_layers, batch_size, self.hidden_size))
+		#discriminator hidden is not random
+		self.hidden = (torch.zeros(self.n_layers, batch_size, self.hidden_size), torch.zeros(self.n_layers, batch_size, self.hidden_size))
 	
 	def forward(self, input):
 		batch_size = input.shape[1]
+		assert batch_size == 1	#return fails with batch size > 1
 		self.reset_hidden(batch_size)
 
 		lstm_out, self.hidden = self.lstm(input, self.hidden)
+		#WARUM HAT DAS HIER OHNE DAS RESHAPE FUNKTIONIERT
+		lstm_out = lstm_out.reshape([-1, self.hidden_size])
 		output = self.network(lstm_out)
 		return torch.mean(output).view(1,1,1)	#return the last score, incomplete sequence may be judged incorrectly
