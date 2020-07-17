@@ -1,13 +1,15 @@
 #hAIku poem generator
 import torch
 import torch.nn as nn
-import torch.optim as optim 
+import torch.optim as optim
+import torch.utils.data	#cant inherit from torch.utils.data.Dataset otherwise
 import numpy as np
 import random
 
 import Generator
 import Discriminator
 import Tools
+from Dataset import Dataset
 
 import matplotlib.pyplot as plt
 from tqdm import trange
@@ -23,36 +25,30 @@ def example():
 
 	optimal = torch.zeros(haiku_length, 1, len(Tools.alphabet))
 	
-	#generate sequence
-	for index in range(haiku_length):
-		probs = generator(previous_output)
-		result = Tools.roundOutput(probs)
-		output[index] = result
-		previous_output = result.unsqueeze(0)
-		target = Tools.Q(output[:index], haiku_length, discriminator)#Q function is slow as heck
-		x = torch.zeros(target.shape)
-		for batch in range(target.shape[0]):
-			a = torch.zeros(target.shape[1])
-			a[torch.argmax(target[batch])] = 1
-			x[batch] = a
+	#generate sequence starting from a given seed
+	text = "i"
+	for i in range(haiku_length):
+		generator.reset_hidden(batch_size = 1)	#every step is essentially a new forward pass
 
-		#total_loss += Tools.NLLLoss(probs, x, use_baseline = False)
-		total_loss += generator.criterion(probs, torch.argmax(target).unsqueeze(0))	#hiermit gehts
-		optimal[index, 0, torch.argmax(target)] = 1
+		input = torch.tensor([dataset.word_to_ix[word] for word in text.split()])
+		outputs = generator(input.view(-1, 1, 1))
+		index = Tools.sample_from_output(outputs[-1])
+		text = f"{text} {dataset.ix_to_word[index.item()]}"
+
+	# 	#total_loss += Tools.NLLLoss(probs, x, use_baseline = False)
+	# 	total_loss += generator.criterion(probs, torch.argmax(target).unsqueeze(0))	#hiermit gehts
+	# 	optimal[index, 0, torch.argmax(target)] = 1
 
 
-	#optimize generator
-	generator.optimizer.zero_grad()
-	total_loss.backward()
-	generator.optimizer.step()
+	# #optimize generator
+	# generator.optimizer.zero_grad()
+	# total_loss.backward()
+	# generator.optimizer.step()
 
-	generator.losses.append(total_loss.item())
-
-	print(f"{Tools.decode(output)} Reward: {discriminator.forward(output).item()}")
-	print(f"{Tools.decode(optimal)} Reward: {discriminator.forward(optimal).item()}")
+	# generator.losses.append(total_loss.item())
+	print(f"Output: {text}")
 	return output.detach()
 
-dataset_path = "data/dataset.txt"
 modelsave_path = "models/"
 load_models = False
 batch_size = 1
@@ -60,24 +56,32 @@ batch_size = 1
 torch.manual_seed(1)
 np.random.seed(1)
 
-dataloader = Tools.fetch_sample(dataset_path)
+dataloader = Tools.fetch_sample("data/dataset.txt")
+
+dataset = Dataset(path = "data/small_dataset.txt")
+dataloader_ = torch.utils.data.DataLoader(dataset, batch_size = batch_size)
+print(dataset.unique_tokens)
 
 #Init models
 generator = Generator.generator(in_size = len(Tools.alphabet), out_size = len(Tools.alphabet))
 discriminator = Discriminator.discriminator(in_size = len(Tools.alphabet))
 
 if load_models:
-	generator.load_state_dict(torch.load(f"{modelsave_path}Generator_pretrain.pt"))
-	discriminator.load_state_dict(torch.load(f"{modelsave_path}Discriminator.pt"))
+	generator.load_state_dict(torch.load("models/Generator_pretrain.pt"))
+	discriminator.load_state_dict(torch.load("models/Discriminator.pt"))
 
 #TRAINING
 discriminator.train()
 generator.train()
 
-episodes = 10
 try:
-	for episode in trange(episodes):
+	for epoch in trange(10):
+		for _, real_sample in dataloader_:
 		real_sample = next(dataloader)
+		print(next(dataloader))
+		for element in dataloader_:
+			print(element)
+			assert False
 		fake_sample = [example(), Tools.encode(["".join(random.choice(Tools.alphabet) for i in range(5))])][np.random.randint(2)]
 
 		#take outputs from discriminator and log them
@@ -108,8 +112,8 @@ try:
 
 finally:
 	#Models are always saved, even after a KeyboardInterrupt
-	torch.save(discriminator.state_dict(), f"{modelsave_path}Discriminator.pt")
-	torch.save(generator.state_dict(), f"{modelsave_path}Generator.pt")
+	torch.save(discriminator.state_dict(), "models/Discriminator.pt")
+	torch.save(generator.state_dict(), "models/Generator.pt")
 
 	#plot the graph of the different losses over time
 	fig, ax = plt.subplots()
@@ -120,5 +124,5 @@ finally:
 	plt.xlabel("training duration")
 	ax.legend()
 
-	plt.show()
+	# plt.show()
 	print(generator.losses)

@@ -9,6 +9,7 @@ import random
 
 import Generator
 from Dataset import Dataset
+import Tools
 
 import matplotlib.pyplot as plt
 import string
@@ -21,22 +22,15 @@ def generateHaiku(seed, num_haikus, length):
 	for haiku_ix in range(num_haikus):
 		text = seed
     	#generate the missing words to complete the haiku
-		for i in range(length):
+		for i in range(length-len(seed.split())):
 			generator.reset_hidden(batch_size = 1)	#every step is essentially a new forward pass
 
 			input = torch.tensor([dataset.word_to_ix[word] for word in text.split()])
 			outputs = generator(input.view(-1, 1, 1))
-			index = sample_from_output(outputs[-1])
+			index = Tools.sample_from_output(outputs[-1])
 			text = f"{text} {dataset.ix_to_word[index.item()]}"
 
 		print(f"Haiku Nr.{haiku_ix}:{text}")
-
-def sample_from_output(prob):
-	"""samples one element from a given log probability distribution"""
-	#top k oder nucleus ist auch gut, einfach mal durchprobieren!
-	index = torch.multinomial(torch.exp(prob), num_samples=1)
-	return index
-
 
 modelsave_path = "models/"
 batch_size = 1
@@ -44,7 +38,7 @@ assert batch_size == 1	#padding not implemented
 torch.manual_seed(1)
 np.random.seed(1)
 
-dataset = Dataset()
+dataset = Dataset(path = "data/dataset.txt")
 dataloader = torch.utils.data.DataLoader(dataset, batch_size = batch_size)
 
 #Init model
@@ -64,7 +58,7 @@ try:
 			print(count)
 			count += 1
 			if count % 50 == 0:
-				generateHaiku("i", num_haikus = 2, length = 7)
+				generateHaiku("i", num_haikus = 2, length = 5)
 				
 			generator.reset_hidden(batch_size)
 			output = generator(input[0].long())
@@ -84,7 +78,7 @@ finally:
 	#TESTING
 	generator.eval()
 	with torch.no_grad():
-		generateHaiku("memorial", num_haikus = 10, length = 7)
+		generateHaiku("i", num_haikus = 10, length = 5)
 
 	#plot the graph of the different losses over time
 	fig, ax = plt.subplots()

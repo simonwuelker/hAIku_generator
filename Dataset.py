@@ -2,7 +2,7 @@ import torch
 from collections import Counter
 
 class Dataset(torch.utils.data.Dataset):
-	def __init__(self, path = "dataset.txt"):
+	def __init__(self, path):
 
 		self.path = path
 		self.data, self.unique_tokens = self.loadData()

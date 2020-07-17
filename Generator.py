@@ -4,7 +4,6 @@ import torch.optim as optim
 
 import numpy as np
 
-import mido
 import Tools
 
 class generator(nn.Module):
@@ -38,7 +37,7 @@ class generator(nn.Module):
 
 	def forward(self, input):
 		seq_length = input.shape[0]
-		output = self.embedding(input).view(seq_length, -1, self.embedding_dim)
+		output = self.embedding(input.long()).view(seq_length, -1, self.embedding_dim)
 		lstm_out, self.hidden = self.lstm(output, self.hidden)
 		lstm_out = lstm_out.view([-1, self.hidden_size])
 		output = self.network(lstm_out)
