@@ -1,44 +1,52 @@
 import torch
-from collections import Counter
+import torch.utils.data
+import string
+
 
 class Dataset(torch.utils.data.Dataset):
-	def __init__(self, path):
 
+	def __init__(self, path):
 		self.path = path
-		self.data, self.unique_tokens = self.loadData()
-	
-		self.word_to_ix = {word:ix for ix, word in enumerate(self.unique_tokens)}
-		self.ix_to_word = {ix:word for ix, word in enumerate(self.unique_tokens)}
+		self.data = self.loadData()
+		self.unique_tokens = string.ascii_lowercase + ", "
+
+		self.token_to_ix = {token: ix for ix, token in enumerate(self.unique_tokens)}
+		self.ix_to_token = {ix: token for ix, token in enumerate(self.unique_tokens)}
 
 	def __len__(self):
 		return len(self.data)
 
 	def __getitem__(self, index):
-		input = " ".join(self.data[index].split()[:-1])	#remove last word from haiku
-		target = " ".join(self.data[index].split()[1:])	#remove first word from target
+		input = self.data[index][:-1]  # remove last word from haiku
+		target = self.data[index][1:]  # remove first word from target
 		return self.encode([input]).view(-1, 1, 1), self.encode([target]).view(-1, 1, 1)
 
 	def loadData(self):
+		"""
+		Loads all the Haikus from the input file
+		and splits them into a list
+		"""
 		with open(self.path, "r", encoding="utf8", errors="ignore") as infile:
 			haikus = infile.read()
-		return haikus.split("\n"), self.get_unique_tokens(haikus.split())
+		return haikus.split("\n")
 
-	def get_unique_tokens(self, words, sort = True):
-		if sort:
-			word_counts = Counter(words)
-			return sorted(word_counts, key=word_counts.get, reverse=True)
+	def encode(self, haikus):
+		"""
+		Encodes a given list of haikus
+		into a 3d matrix
+		All Haikus must have equal length
+		"""
 
-		return set(words)	#set saves memory in comparison to list
-
-	def encode(self, context):
-		context = [haiku.split() for haiku in context]
-		result = torch.empty(len(context), len(context[0]))
-		for batch_ix, batch in enumerate(context):
-			for word_ix, word in enumerate(batch):
-				result[batch_ix, word_ix] = self.word_to_ix[word]
-		return result
+		result = torch.empty(len(haikus), len(haikus[0]))
+		for index, haiku in enumerate(haikus):
+			result[index] = torch.tensor([self.token_to_ix[token] for token in haiku])
+		return result.transpose(1, 0)
 
 	def decode(self, tensor):
+		"""
+		Decodes a tensor of shape[Sequence_Length, batch_size, num_Classes]
+		into  a list of strings
+		"""
 		seq_length = tensor.shape[0]
 		batch_size = tensor.shape[1]
 
@@ -46,7 +54,7 @@ class Dataset(torch.utils.data.Dataset):
 		for batch_ix in range(batch_size):
 			batchstring = ""
 			for seq_ix in range(seq_length):
-				batchstring += self.ix_to_word[tensor[seq_ix, batch_ix].item()] 
+				batchstring += self.ix_to_token[tensor[seq_ix, batch_ix].item()]
 			result.append(batchstring)
 
 		return result

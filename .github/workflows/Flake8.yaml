@@ -15,4 +15,4 @@ jobs:
           pip install flake8
       - name: Lint with flake8
         run: |
-          flake8 --ignore=W191 .
+          flake8 --ignore=W191,E501,E128 .
