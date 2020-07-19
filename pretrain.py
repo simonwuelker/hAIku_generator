@@ -8,6 +8,7 @@ import numpy as np
 import Generator
 from Dataset import Dataset
 import Tools
+import torch.nn.functional as F
 
 import matplotlib.pyplot as plt
 import warnings
@@ -20,28 +21,27 @@ def generateHaiku(seed, num_haikus, length):
 	for haiku_ix in range(num_haikus):
 		text = seed
 		# generate the missing words to complete the haiku
-		for i in range(length - len(seed.split())):
+		for i in range(length - len(seed)):
 			generator.reset_hidden(batch_size=1)  # every step is essentially a new forward pass
 
-			input = torch.tensor([dataset.token_to_ix[token] for token in text])
-			outputs = generator(input.view(-1, 1, 1))
+			input = F.one_hot(torch.tensor([dataset.token_to_ix[token] for token in text]), len(dataset.unique_tokens))
+			outputs = generator(input.view(1, -1, len(dataset.unique_tokens)).float())
 			index = Tools.sample_from_output(outputs[-1])
 			text = f"{text}{dataset.ix_to_token[index.item()]}"
 
-		print(f"Haiku Nr.{haiku_ix}:{text}")
+		print(f"Haiku Nr.{haiku_ix}:{text}.")
 
 
 modelsave_path = "models/"
 batch_size = 1
-assert batch_size == 1  # padding not implemented
 torch.manual_seed(1)
 np.random.seed(1)
 
-dataset = Dataset(path="data/dataset.txt")
+dataset = Dataset(path="data/small_dataset.txt")
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
 
 # Init model
-generator = Generator.generator(in_size=len(dataset.unique_tokens), out_size=len(dataset.unique_tokens))
+generator = Generator.generator(in_size=len(dataset.unique_tokens), hidden_size = 600, n_layers=3, out_size=len(dataset.unique_tokens), batch_first=True)
 try:
 	generator.load_state_dict(torch.load("models/Generator_pretrained.pt"))
 except FileNotFoundError:
@@ -52,20 +52,24 @@ except RuntimeError:
 # TRAINING
 generator.train()
 try:
-	for epoch in range(1):
+	for epoch in range(5000):
 		print(f"Epoch: {epoch}")
 		count = 0
-		for input, target in dataloader:
-			print(count)
+		for sample, target in dataloader:
 			count += 1
+
 			if count % 50 == 0:
 				generateHaiku("i", num_haikus=4, length=20)
 
+			input = sample[:, :-1, :]
+			target = torch.argmax(sample[:, 1:, :].squeeze(), dim=1)
+
 			generator.reset_hidden(batch_size)
-			output = generator(input[0].long())
-			target = target.squeeze()
+			output = generator(input)  # for some reason the result does not have a batch dim
+
 			loss = generator.criterion(output, target.long())
 
+			# optimize generator
 			generator.optimizer.zero_grad()
 			loss.backward()
 			generator.optimizer.step()
@@ -81,7 +85,7 @@ finally:
 	with torch.no_grad():
 		generateHaiku("i", num_haikus=10, length=20)
 
-	# plot the graph of the different losses over time
+	# plot the graph of loss over time
 	fig, ax = plt.subplots()
 	ax.plot(generator.losses, label="Generator")
 	plt.ylabel("Loss")
@@ -89,3 +93,4 @@ finally:
 	ax.legend()
 
 	plt.show()
+	print(generator.losses)

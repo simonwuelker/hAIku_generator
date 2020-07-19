@@ -4,7 +4,7 @@ import torch.optim as optim
 
 
 class generator(nn.Module):
-	def __init__(self, in_size=80, hidden_size=400, n_layers=2, out_size=80, lr=0.04):
+	def __init__(self, in_size=80, hidden_size=400, n_layers=2, out_size=80, lr=0.005, batch_first=False):
 		super(generator, self).__init__()
 
 		self.in_size = in_size
@@ -14,7 +14,7 @@ class generator(nn.Module):
 		self.lr = lr
 		self.losses = []
 
-		self.lstm = nn.LSTM(self.in_size, self.hidden_size, self.n_layers)
+		self.lstm = nn.LSTM(self.in_size, self.hidden_size, self.n_layers, batch_first=batch_first)
 
 		self.network = nn.Sequential(
 			nn.Linear(self.hidden_size, 400),

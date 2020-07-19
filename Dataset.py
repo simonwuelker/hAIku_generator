@@ -1,5 +1,6 @@
 import torch
 import torch.utils.data
+import torch.nn.functional as F
 import string
 
 
@@ -17,9 +18,11 @@ class Dataset(torch.utils.data.Dataset):
 		return len(self.data)
 
 	def __getitem__(self, index):
-		input = self.data[index][:-1]  # remove last word from haiku
-		target = self.data[index][1:]  # remove first word from target
-		return self.encode([input]).view(-1, 1, 1), self.encode([target]).view(-1, 1, 1)
+		# input_txt = self.data[index][:-1]  # remove last word from haiku
+		# target_txt = self.data[index][1:]  # remove first word from target
+
+		sample = F.one_hot(self.encode([self.data[index]]).long(), len(self.unique_tokens))
+		return sample.float(), 1
 
 	def loadData(self):
 		"""
@@ -40,7 +43,7 @@ class Dataset(torch.utils.data.Dataset):
 		result = torch.empty(len(haikus), len(haikus[0]))
 		for index, haiku in enumerate(haikus):
 			result[index] = torch.tensor([self.token_to_ix[token] for token in haiku])
-		return result.transpose(1, 0)
+		return result.squeeze()  # squeeze can probably be avoided 
 
 	def decode(self, tensor):
 		"""
