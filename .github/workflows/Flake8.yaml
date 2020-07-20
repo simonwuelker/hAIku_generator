@@ -1,0 +1,19 @@
+# maybe cache dependencies in the future https://github.com/actions/cache/blob/main/examples.md#python---pip
+# Trigger the workflow on push or pull request
+name: Flake8
+on: [push, pull_request]
+jobs:
+  job1:
+    name: Lint with flake8
+    runs-on: ubuntu-latest
+    steps:          
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8
+      - name: Lint with flake8
+        run: |
+          flake8 --ignore=W191,E501,E128 .
