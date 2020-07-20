@@ -2,12 +2,9 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-import numpy as np
-
-import Tools
 
 class generator(nn.Module):
-	def __init__(self, in_size = 80, hidden_size = 400, n_layers = 2, out_size = 80, lr = 0.04, embedding_dim=50):
+	def __init__(self, in_size=80, hidden_size=400, n_layers=2, out_size=80, lr=0.04, embedding_dim=50, batch_first=True):
 		super(generator, self).__init__()
 
 		self.in_size = in_size
@@ -19,7 +16,7 @@ class generator(nn.Module):
 		self.losses = []
 
 		self.embedding = nn.Embedding(self.in_size, self.embedding_dim)
-		self.lstm = nn.LSTM(self.embedding_dim, self.hidden_size, self.n_layers)
+		self.lstm = nn.LSTM(self.embedding_dim, self.hidden_size, self.n_layers, batch_first=batch_first)
 
 		self.network = nn.Sequential(
 			nn.Linear(self.hidden_size, 400),
@@ -29,11 +26,10 @@ class generator(nn.Module):
 			nn.Linear(300, 128),
 			nn.ReLU(),
 			nn.Linear(128, out_size),
-			nn.LogSoftmax(dim=1)			
-			)
+			nn.LogSoftmax(dim=1)
+		)
 		self.criterion = nn.NLLLoss()
 		self.optimizer = optim.SGD(self.parameters(), lr)
-
 
 	def forward(self, input):
 		seq_length = input.shape[0]
