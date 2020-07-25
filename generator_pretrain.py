@@ -15,19 +15,20 @@ from tqdm import trange
 
 def generateHaiku(seed, num_haikus, length):
 	"""Generates a certain number of haikus with a given length starting from some specified words"""
+	seed = dataset.encode(seed)
 	for haiku_ix in range(num_haikus):
-		text = seed
+		result = torch.zeros(1, length, 1)
+		result[:, :seed.shape[1]] = seed
+
 		# generate the missing words to complete the haiku
-		for i in range(length - len(seed.split())):
+		for i in range(length - seed.shape[1]):
 			generator.reset_hidden(batch_size=1)  # every step is essentially a new forward pass
 
-			input = torch.tensor([dataset.word_to_ix[word] for word in text.split()])
-			outputs = generator(input.view(1, -1, 1))
+			output = generator(result[:, :i + 1, :])[-1]
+			index = Tools.sample_from_output(output)
+			result[0, i + 1] = index
 
-			index = Tools.sample_from_output(outputs[-1])
-			text = f"{text} {dataset.ix_to_word[index.item()]}"
-
-		print(f"Haiku Nr.{haiku_ix}:{text}")
+		print(f"Haiku Nr.{haiku_ix}:{dataset.decode(result)}")
 
 
 batch_size = 1
@@ -49,7 +50,7 @@ except RuntimeError:
 # TRAINING
 generator.train()
 try:
-	for epoch in trange(50):
+	for epoch in trange(0):
 		total_loss = 0
 		for sample in dataloader:
 			generator.reset_hidden(batch_size)

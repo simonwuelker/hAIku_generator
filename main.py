@@ -10,37 +10,25 @@ from Dataset import Dataset
 
 import matplotlib.pyplot as plt
 from tqdm import trange
-import random
 
 
 def example(haiku_length=8):
 	"""returns one generated sequence and optimizes the generator"""
 	generator.reset_hidden(batch_size=1)
 
-	text = random.choice(list(dataset.unique_tokens))
+	result = torch.randint(len(dataset.unique_tokens), size=(1, haiku_length, 1))
+
 	# generate the missing words to complete the haiku
-	for i in range(haiku_length - len(text.split())):
-		generator.reset_hidden(batch_size=1)  # every step is essentially a new forward pass
+	for i in range(haiku_length - 1):
+		generator.reset_hidden(batch_size=1)
 
-		input = torch.tensor([dataset.word_to_ix[word] for word in text.split()])
-		outputs = generator(input.view(1, -1, 1))
+		output = generator(result[:, :i + 1, :])[-1]
+		# target = Tools.Q(input, output, haiku_length, discriminator, dataset)
 
-		index = Tools.sample_from_output(outputs[-1])
-		text = f"{text} {dataset.ix_to_word[index.item()]}"
+		index = Tools.sample_from_output(output)
+		result[0, i + 1] = index
 
-	print(f"Haiku:{text}")
-
-	# 	#total_loss += Tools.NLLLoss(probs, x, use_baseline = False)
-	# 	total_loss += generator.criterion(probs, torch.argmax(target).unsqueeze(0))	#hiermit gehts
-	# 	optimal[index, 0, torch.argmax(target)] = 1
-
-	# #optimize generator
-	# generator.optimizer.zero_grad()
-	# total_loss.backward()
-	# generator.optimizer.step()
-
-	# generator.losses.append(total_loss.item())
-	return dataset.encode(text).view(1, -1, 1)  # this doesnt support batch sizes > 1
+	return result
 
 
 modelsave_path = "models/"
@@ -76,8 +64,6 @@ try:
 			# Save scores for evaluation
 			discriminator.scores_real.append(score_real.item())
 			discriminator.scores_fake.append(score_fake.item())
-			print(f"real:{score_real}, {Tools.decode(real_sample)}")
-			print(f"fake:{score_fake}, {Tools.decode(fake_sample)}")
 
 			# calculate loss
 			loss_d = torch.mean(-torch.log(1 - score_fake) - torch.log(score_real))
@@ -98,17 +84,17 @@ finally:
 	generator.eval()
 
 	with torch.no_grad():
-		# run a lot of tests....
-		pass
+		# could probably just implement a batch system in example and avoid for loop
+		for haiku_ix in range(10):
+			print(f"Haiku Nr.{haiku_ix}: {dataset.decode(example())}")
 
 	# plot the graph of the different losses over time
 	fig, ax = plt.subplots()
-	# ax.plot(discriminator.scores_real, label = "Real")
-	# ax.plot(discriminator.scores_fake, label = "Fake")
-	ax.plot(generator.losses[2:], label="Generator Loss")
+	ax.plot(discriminator.scores_real, label="Real")
+	ax.plot(discriminator.scores_fake, label="Fake")
+	# ax.plot(generator.losses[2:], label="Generator Loss")
 	plt.ylabel("Loss")
 	plt.xlabel("training duration")
 	ax.legend()
 
-	# plt.show()
-	print(generator.losses)
+	plt.show()
