@@ -4,17 +4,19 @@ import torch.optim as optim
 
 
 class discriminator(nn.Module):
-	def __init__(self, in_size, hidden_size=400, out_size=1, n_layers=1, lr=0.01, batch_first=True):
+	def __init__(self, in_size, hidden_size=400, out_size=1, n_layers=1, lr=0.01, embedding_dim=50, batch_first=True):
 		super(discriminator, self).__init__()
 
 		self.in_size = in_size
 		self.out_size = out_size
+		self.embedding_dim = embedding_dim
 		self.lr = lr
 		self.hidden_size = hidden_size
 		self.n_layers = n_layers
 
-		# LSTM Architecture
-		self.lstm = nn.LSTM(in_size, hidden_size, n_layers, batch_first=batch_first)
+		# Architecture
+		self.embedding = nn.Embedding(self.in_size, self.embedding_dim)
+		self.lstm = nn.LSTM(self.embedding_dim, self.hidden_size, self.n_layers, batch_first=batch_first)
 		self.network = nn.Sequential(
 			nn.Linear(self.hidden_size, 400),
 			nn.ReLU(),
@@ -39,9 +41,9 @@ class discriminator(nn.Module):
 
 	def forward(self, input):
 		batch_size = input.shape[0]
-		assert batch_size == 1  # return fails with batch size > 1
 		self.reset_hidden(batch_size)
 
+		input = self.embedding(input.long()).view(batch_size, -1, self.embedding_dim)
 		lstm_out, self.hidden = self.lstm(input, self.hidden)
 		# WARUM HAT DAS HIER OHNE DAS RESHAPE FUNKTIONIERT
 		lstm_out = lstm_out.reshape([-1, self.hidden_size])
