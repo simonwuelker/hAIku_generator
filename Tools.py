@@ -2,13 +2,13 @@ import torch
 import numpy as np
 
 
-def predMaxReward(state, length, discriminator, dataset):
+def predMaxReward(state, length, discriminator):
 	"""predMaxReward(state) judges the quality of the given state by performing n rollouts"""
 	batch_size = state.shape[1]
 	simulations = 25  # increase simulations to increase reward accuracy
 	maxScores = torch.tensor([float("-inf")] * batch_size)
 	for roll_ix in range(simulations):
-		completed = rolloutPartialSequence(state, length, dataset)
+		completed = rollout(state, length)
 		scores = discriminator(completed)  # only select the final judgement(when the whole sequence has been seen)
 		scores = scores[-1, :]
 		for batch_ix in range(batch_size):
@@ -17,56 +17,39 @@ def predMaxReward(state, length, discriminator, dataset):
 	return maxScores
 
 
-def expandTree(state, action, dataset):
+def expandTree(state, action):
 	"""expandTree is the equivalent of the state transition function δ"""
-	batch_size = state.shape[1]
-	seq_length = state.shape[0]
-	output = torch.zeros(seq_length + 1, batch_size, len(dataset.unique_tokens))
-	output[:seq_length] = state
-	output[-1, :, action] = 1
+	output = torch.zeros(state.shape[0], state.shape[1] + 1, state.shape[2])
+	output[:, :state.shape[1]] = state
+
+	# this can probably be simplified
+	for batch_ix in range(state.shape[0]):
+		output[batch_ix, -1] = action.detach()[batch_ix]
 	return output
 
 
-def Q(state, length, discriminator, dataset):
-	"""Q(state) returns the quality of all possible actions that can be performed in the given state"""
-	batch_size = state.shape[1]
+def Q(state, action, length, discriminator):
+	"""
+	Tries to estimate the quality of the action given the state via Monte Carlo
+	Parameters:
+		state:[batch_size, sequence_length, 1]
+		action:[batch_size, 1]
+	Returns:
+		qualities:[batch_size, 1]
+	"""
+	print(state.shape)
+	print(action)
+	state = expandTree(state, action)
+	print(state)
+	assert False
 
-	# simulations = 2	#nr of actions to simulate
-	# output = torch.zeros(simulations, batch_size)-1	#dimensions are wrong, will be transposed later
-	# simulated = []	#keeps track of all the action that have been simulated
-	# unique_simulations = 0	#counts all unique simulations
-
-	# for _ in range(simulations):
-	# 	#randomly sample one char based on the distribution from the dataset
-	# 	action = np.random.choice(np.arange(len(dataset.unique_tokens)), p = distribution)
-	# 	estimated_reward = predMaxReward(expandTree(state, action), length, discriminator)
-
-	# 	#check if the action has already been simulated
-	# 	if action in simulated:
-	# 		index = simulated.index(action)
-	# 		#action has beeen simulated twice so we need to check whether our new value is higher than the old one
-	# 		if estimated_reward > output[index]:
-	# 			output[index] = estimated_reward
-	# 	else:
-	# 		output[unique_simulations] = estimated_reward
-	# 		simulated.append(action)
-	# 		unique_simulations += 1
-
-	# 	print(f"action nr.{_}: {action}")
-	# print(output, unique_simulations)
-
-	output = torch.zeros(len(dataset.unique_tokens), batch_size)  # dimensions are wrong, will be transposed later
-	for action in range(len(dataset.unique_tokens)):
-		output[action] = predMaxReward(expandTree(state, action), length, discriminator, dataset)
-
-	output = output.transpose(0, 1)
-
-	return output  # simulated, output[:,:unique_simulations]
+	return quality.detach()
 
 
-def rolloutPartialSequence(input, length, dataset):
+def rollout(input, length):
 	"""takes a incomplete sequence and appends n random actions"""
-	output = torch.empty(length, input.shape[1], input.shape[2])
+	assert False
+	output = torch.empty(input.shape[0], length, input.shape[2])
 	output[:input.shape[0]] = input
 
 	# randomly fill in the remaining values(rollout)
@@ -78,6 +61,7 @@ def rolloutPartialSequence(input, length, dataset):
 			batch[b][action] = 1
 
 		output[index] = batch
+	assert False
 	return output
 
 
@@ -116,6 +100,5 @@ def NLLLoss(input, target, use_baseline=False):
 
 def sample_from_output(prob):
 	"""samples one element from a given log probability distribution"""
-	# top k oder nucleus ist auch gut, einfach mal durchprobieren!
 	index = torch.multinomial(torch.exp(prob), num_samples=1)
 	return index
