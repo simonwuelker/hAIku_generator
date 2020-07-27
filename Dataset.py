@@ -1,4 +1,5 @@
 import torch
+from ordered_set import OrderedSet  # OrderedSet ensures that the word-token mappings will always be the same
 
 
 class Dataset(torch.utils.data.Dataset):
@@ -20,7 +21,7 @@ class Dataset(torch.utils.data.Dataset):
 		with open(self.path, "r", encoding="utf8", errors="ignore") as infile:
 			haikus = infile.read().splitlines()
 
-		return haikus, set([word for haiku in haikus for word in haiku.split()])
+		return haikus, OrderedSet([word for haiku in haikus for word in haiku.split()])
 
 	def encode(self, haiku):
 		""" Encodes a single line of text """
@@ -31,14 +32,14 @@ class Dataset(torch.utils.data.Dataset):
 		return result
 
 	def decode(self, tensor):
-		seq_length = tensor.shape[0]
-		batch_size = tensor.shape[1]
+		batch_size = tensor.shape[0]
+		seq_length = tensor.shape[1]
 
 		result = []
 		for batch_ix in range(batch_size):
 			batchstring = ""
 			for seq_ix in range(seq_length):
-				batchstring += self.ix_to_word[tensor[seq_ix, batch_ix].item()]
+				batchstring += self.ix_to_word[tensor[batch_ix, seq_ix].item()] + " "
 			result.append(batchstring)
 
 		return result
