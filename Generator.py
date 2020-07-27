@@ -32,8 +32,9 @@ class generator(nn.Module):
 		self.optimizer = optim.SGD(self.parameters(), lr)
 
 	def forward(self, input):
-		seq_length = input.shape[0]
-		output = self.embedding(input.long()).view(seq_length, -1, self.embedding_dim)
+		#das hier ist noch nicht auf batch first angepasst
+		batch_size = input.shape[0]
+		output = self.embedding(input.long()).view(batch_size, -1, self.embedding_dim)
 		lstm_out, self.hidden = self.lstm(output, self.hidden)
 		lstm_out = lstm_out.view([-1, self.hidden_size])
 		output = self.network(lstm_out)
