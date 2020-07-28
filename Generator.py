@@ -3,6 +3,41 @@ import torch.nn as nn
 import torch.optim as optim
 
 
+class ReplayBuffer(object):
+	def __init__(self, memsize=100000, state_shape, action_shape):
+		self.memsize = memsize
+		self.mem_cntr = 0
+		self.state_memory = np.empty((memsize, state_shape))
+		self.action_memory = np.empty((memsize, action_shape))
+		self.reward_memory = np.empty(memsize)
+		self.new_state_memory = np.empty((memsize, state_shape))
+		self.done_memory = np.empty(memsize)
+
+	def store(self, state, action, reward, new_state, done):
+		index = mem_cntr % memsize
+
+		self.state_memory[index] = state
+		self.action_memory[index] = action
+		self.reward_memory[index] = reward
+		self.new_state_memory[index] = new_state
+		self.done_memory[index] = done
+
+		mem_cntr += 1
+
+	def sample(self, batch_size):
+		# prevent sampling parts of the buffer that have not yet been filled
+		max_addr = min(self.memsize, mem_cntr)
+
+		batch = np.random.choice(max_addr, batch_size)
+
+		states = self.state_memory[batch]
+		actions = self.action_memory[batch]
+		rewards = self.reward_memory[batch]
+		new_states = self.new_state_memory[batch]
+		done = self.new_state_memory[batch]
+
+		return states, actions, rewards, new_states, done
+
 class generator(nn.Module):
 	def __init__(self, in_size=80, hidden_size=400, n_layers=2, out_size=80, lr=0.04, embedding_dim=50, batch_first=True):
 		super(generator, self).__init__()
@@ -14,6 +49,7 @@ class generator(nn.Module):
 		self.embedding_dim = embedding_dim
 		self.lr = lr
 		self.losses = []
+		self.ReplayBuffer = ReplayBuffer(self.embedding_dim, self.out_size)
 
 		self.embedding = nn.Embedding(self.in_size, self.embedding_dim)
 		self.lstm = nn.LSTM(self.embedding_dim, self.hidden_size, self.n_layers, batch_first=batch_first)
