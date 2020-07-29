@@ -1,5 +1,6 @@
 ![Flake8](https://github.com/Wuelle/BW-KI-2020/workflows/Flake8/badge.svg)
 ![Github All Releases](https://img.shields.io/github/downloads/Wuelle/BW-KI-2020/total.svg)
+[![Open Source? Yes!](https://badgen.net/badge/Open%20Source%20%3F/Yes%21/blue?icon=github)](https://github.com/Naereen/badges/)
 # Haiku Generator
 This Repository contains an implementation of the SeqGan Architecture proposed in [this Paper](https://arxiv.org/pdf/1609.05473.pdf) for generating Haikus. It consists, of two main branches, `charlevel`, which generates text
 character by character and `Embeddings`, which uses the pytorch Embeddings to generate text.
