@@ -19,12 +19,12 @@ dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
 
 # Init/Load model
 discriminator = Discriminator.discriminator(in_size=len(dataset.unique_tokens))
-discriminator.loadModel()
+# discriminator.loadModel()
 
 # TRAINING
 discriminator.train()
 try:
-	for epoch in trange(5):
+	for epoch in trange(50):
 		total_loss = 0
 		total_score_real = 0
 		total_score_fake = 0
@@ -56,9 +56,9 @@ try:
 			discriminator.optimizer.step()
 
 		# save outputs
-		discriminator.scores_real.append(total_score_real)
-		discriminator.scores_fake.append(total_score_fake)
-		discriminator.losses.append(total_loss)
+		discriminator.scores_real.append(total_score_real / len(dataloader))
+		discriminator.scores_fake.append(total_score_fake / len(dataloader))
+		discriminator.losses.append(total_loss / len(dataloader))
 
 finally:
 	# Models are always saved, even after a KeyboardInterrupt
@@ -69,10 +69,10 @@ finally:
 	# ax.plot(discriminator.losses, label="Discriminator Loss")
 	plt.plot(discriminator.scores_real, label="Real")
 	plt.plot(discriminator.scores_fake, label="Fake")
-	plt.ylabel("Loss")
-	plt.xlabel("Epochs")
+	plt.ylabel("Avg. Score")
+	plt.xlabel("Epoch")
 	plt.legend()
-
+	plt.savefig("training_graphs/disc_pretrain_scores")
 	plt.show()
 
 	# TESTING
