@@ -26,7 +26,7 @@ class Dataset(torch.utils.data.Dataset):
 	def encode(self, haiku):
 		""" Encodes a single line of text """
 		words = haiku.split()
-		result = torch.empty(len(words), 1)
+		result = torch.empty(len(words))
 		for word_ix, word in enumerate(words):
 			result[word_ix] = self.word_to_ix[word]
 		return result
