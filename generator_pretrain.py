@@ -39,13 +39,8 @@ dataset = Dataset(path="data/small_dataset.txt")
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
 
 # Init/Load model
-generator = Generator.generator(in_size=len(dataset.unique_tokens), out_size=len(dataset.unique_tokens))
-try:
-	generator.load_state_dict(torch.load("models/Generator_pretrained.pt"))
-except FileNotFoundError:
-	warnings.warn("Generator model does not exist")
-except RuntimeError:
-	warnings.warn("Failed to load Generator model")
+generator = Generator.generator(alpha=0.01, beta=0.01, in_size=len(dataset.unique_tokens), embedding_dim=50)
+generator.loadModels()
 
 # TRAINING
 generator.train()
@@ -55,8 +50,8 @@ try:
 		for sample in dataloader:
 			generator.reset_hidden(batch_size)
 
-			input = sample[:, :-1, :]
-			target = sample[:, 1:, :]
+			input = sample[:, :-1]
+			target = sample[:, 1:]
 
 			output = generator(input.long())
 			target = target.squeeze()
