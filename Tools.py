@@ -1,5 +1,4 @@
 import torch
-import numpy as np
 
 
 def predMaxReward(state, length, discriminator):
@@ -43,26 +42,26 @@ def Q(state, action, length, discriminator):
 	print(state)
 	assert False
 
-	return quality.detach()
+	# return quality.detach()
 
 
 def rollout(input, length):
 	"""takes a incomplete sequence and appends n random actions"""
-	assert False
-	output = torch.empty(input.shape[0], length, input.shape[2])
-	output[:input.shape[0]] = input
+	# assert False
+	# output = torch.empty(input.shape[0], length)
+	# output[:input.shape[0]] = input
 
-	# randomly fill in the remaining values(rollout)
-	for index in range(input.shape[0], length):
-		batch = torch.zeros(input.shape[1], len(dataset.unique_tokens))
-		for b in range(input.shape[1]):
-			action = np.random.choice(np.arange(len(dataset.unique_tokens)))
-			batch[b] = torch.zeros(len(dataset.unique_tokens))
-			batch[b][action] = 1
+	# # randomly fill in the remaining values(rollout)
+	# for index in range(input.shape[0], length):
+	# 	batch = torch.zeros(input.shape[1])
+	# 	for b in range(input.shape[1]):
+	# 		action = np.random.choice(np.arange(len(dataset.unique_tokens)))
+	# 		batch[b] = torch.zeros(len(dataset.unique_tokens))
+	# 		batch[b][action] = 1
 
-		output[index] = batch
-	assert False
-	return output
+	# 	output[index] = batch
+	# assert False
+	# return output
 
 
 def roundOutput(input):
