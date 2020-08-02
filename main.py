@@ -13,39 +13,7 @@ import matplotlib.pyplot as plt
 from tqdm import trange
 
 
-def example():
-	"""returns one generated sequence and optimizes the generator"""
-	generator.reset_hidden(batch_size=1)
-
-	haiku_length = 5  # np.random.randint(8, 12)  # length boundaries are arbitrary
-	output = torch.empty(haiku_length, batch_size, len(dataset.unique_tokens))
-
-	# generate sequence starting from a given seed
-	text = "i"
-	for i in range(haiku_length):
-		generator.reset_hidden(batch_size=1)  # every step is essentially a new forward pass
-
-		input = torch.tensor([dataset.token_to_ix[word] for word in text.split()])
-		outputs = generator(input.view(-1, 1, 1))
-		index = Tools.sample_from_output(outputs[-1])
-		text = f"{text}{dataset.ix_to_token[index.item()]}"
-
-	# 	#total_loss += Tools.NLLLoss(probs, x, use_baseline = False)
-	# 	total_loss += generator.criterion(probs, torch.argmax(target).unsqueeze(0))
-	# 	optimal[index, 0, torch.argmax(target)] = 1
-
-	# #optimize generator
-	# generator.optimizer.zero_grad()
-	# total_loss.backward()
-	# generator.optimizer.step()
-
-	# generator.losses.append(total_loss.item())
-	print(f"Output: {text}")
-	return output.detach()
-
-
 modelsave_path = "models/"
-load_models = False
 batch_size = 1
 
 torch.manual_seed(1)
@@ -58,19 +26,16 @@ dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
 generator = Generator.generator(in_size=len(dataset.unique_tokens), out_size=len(dataset.unique_tokens))
 discriminator = Discriminator.discriminator(in_size=len(dataset.unique_tokens))
 
-if load_models:
-	generator.load_state_dict(torch.load("models/Generator_pretrain.pt"))
-	discriminator.load_state_dict(torch.load("models/Discriminator.pt"))
+# generator.loadModel()
+# discriminator.loadModel()
 
 # TRAINING
-discriminator.train()
 generator.train()
-
+discriminator.train()
 try:
 	for epoch in trange(10):
-		for _, real_sample in dataloader:
-			fake_sample = [example(),
-						Tools.encode(["".join(random.choice(dataset.unique_tokens) for i in range(5))])][np.random.randint(2)]
+		for real_sample in dataloader:
+			fake_sample = generator.example(batch_size=batch_size)
 
 			# take outputs from discriminator and log them
 			score_real = discriminator(real_sample)
@@ -79,8 +44,6 @@ try:
 			# Save scores for evaluation
 			discriminator.scores_real.append(score_real.item())
 			discriminator.scores_fake.append(score_fake.item())
-			print(f"real:{score_real}, {Tools.decode(real_sample)}")
-			print(f"fake:{score_fake}, {Tools.decode(fake_sample)}")
 
 			# calculate loss
 			loss_d = torch.mean(-torch.log(1 - score_fake) - torch.log(score_real))
@@ -89,7 +52,12 @@ try:
 			# optimize discriminator
 			discriminator.optimizer.zero_grad()
 			loss_d.backward()
-			discriminator.optimizer.step()
+			discriminator.optimizer.step()	
+
+finally:
+	# Models are always saved, even after a KeyboardInterrupt
+	generator.saveModel()
+	discriminator.saveModel()
 
 	# TESTING
 	discriminator.eval()
@@ -98,19 +66,12 @@ try:
 	with torch.no_grad():
 		pass
 
-finally:
-	# Models are always saved, even after a KeyboardInterrupt
-	torch.save(discriminator.state_dict(), "models/Discriminator.pt")
-	torch.save(generator.state_dict(), "models/Generator.pt")
-
 	# plot the graph of the different losses over time
-	fig, ax = plt.subplots()
-	# ax.plot(discriminator.scores_real, label = "Real")
-	# ax.plot(discriminator.scores_fake, label = "Fake")
-	ax.plot(generator.losses[2:], label="Generator Loss")
-	plt.ylabel("Loss")
-	plt.xlabel("training duration")
-	ax.legend()
+	plt.plot(discriminator.scores_real, label = "Real")
+	plt.plot(discriminator.scores_fake, label = "Fake")
+	plt.ylabel("Scores")
+	plt.xlabel("Samples")
+	plt.legend()
 
 	# plt.show()
 	print(generator.losses)

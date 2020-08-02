@@ -18,11 +18,9 @@ class Dataset(torch.utils.data.Dataset):
 		return len(self.data)
 
 	def __getitem__(self, index):
-		# input_txt = self.data[index][:-1]  # remove last word from haiku
-		# target_txt = self.data[index][1:]  # remove first word from target
 
-		sample = F.one_hot(self.encode([self.data[index]]).long(), len(self.unique_tokens))
-		return sample.float(), 1
+		sample = self.encode(self.data[index])
+		return sample
 
 	def loadData(self):
 		"""
@@ -33,17 +31,11 @@ class Dataset(torch.utils.data.Dataset):
 			haikus = infile.read()
 		return haikus.split("\n")
 
-	def encode(self, haikus):
-		"""
-		Encodes a given list of haikus
-		into a 3d matrix
-		All Haikus must have equal length
-		"""
+	def encode(self, haiku):
+		"""encodes a single haiku"""
 
-		result = torch.empty(len(haikus), len(haikus[0]))
-		for index, haiku in enumerate(haikus):
-			result[index] = torch.tensor([self.token_to_ix[token] for token in haiku])
-		return result.squeeze()  # squeeze can probably be avoided 
+		result= F.one_hot(torch.tensor([self.token_to_ix[char] for char in haiku]), len(self.unique_tokens))
+		return result
 
 	def decode(self, tensor):
 		"""

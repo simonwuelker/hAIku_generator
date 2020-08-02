@@ -4,18 +4,18 @@ import torch.optim as optim
 
 
 class discriminator(nn.Module):
-	def __init__(self, in_size, hidden_size=400, out_size=1, n_layers=1, lr=0.01, batch_size=1):
+	def __init__(self, in_size, hidden_size=400, out_size=1, n_layers=1, lr=0.01):
 		super(discriminator, self).__init__()
 
 		self.in_size = in_size
 		self.out_size = out_size
 		self.lr = lr
-		self.batch_size = batch_size
 		self.hidden_size = hidden_size
 		self.n_layers = n_layers
+		self.chkpt_path = "models/Discriminator.pt"
 
 		# LSTM Architecture
-		self.lstm = nn.LSTM(in_size, hidden_size, n_layers)
+		self.lstm = nn.LSTM(in_size, hidden_size, n_layers, batch_first=True)
 		self.network = nn.Sequential(
 			nn.Linear(self.hidden_size, 400),
 			nn.ReLU(),
@@ -38,7 +38,8 @@ class discriminator(nn.Module):
 		Resets the hidden state of the LSTM within the discriminator given a certain batch size.
 		Hidden state is not random.
 		"""
-		self.hidden = (torch.zeros(self.n_layers, batch_size, self.hidden_size), torch.zeros(self.n_layers, batch_size, self.hidden_size))
+		self.hidden = (torch.zeros(self.n_layers, batch_size, self.hidden_size), 
+			torch.zeros(self.n_layers, batch_size, self.hidden_size))
 
 	def forward(self, input):
 		batch_size = input.shape[1]
@@ -50,3 +51,9 @@ class discriminator(nn.Module):
 		lstm_out = lstm_out.reshape([-1, self.hidden_size])
 		output = self.network(lstm_out)
 		return torch.mean(output).view(1, 1, 1)  # return the last score, incomplete sequence may be judged incorrectly
+
+	def loadModel(self):
+		self.load_state_dict(torch.load(self.chkpt_path))
+
+	def saveModel(self):
+		torch.save(self.state_dict(), self.chkpt_path)
