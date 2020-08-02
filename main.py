@@ -33,7 +33,7 @@ discriminator = Discriminator.discriminator(in_size=len(dataset.unique_tokens))
 generator.train()
 discriminator.train()
 try:
-	for epoch in trange(10):
+	for epoch in trange(2):
 		for real_sample in dataloader:
 			fake_sample = generator.example(batch_size=batch_size)
 
@@ -70,8 +70,8 @@ finally:
 	plt.plot(discriminator.scores_real, label = "Real")
 	plt.plot(discriminator.scores_fake, label = "Fake")
 	plt.ylabel("Scores")
-	plt.xlabel("Samples")
+	plt.xlabel("Training steps")
 	plt.legend()
-
-	# plt.show()
+	plt.savefig("training_graphs/discriminator_scores_main")
+	plt.show()
 	print(generator.losses)

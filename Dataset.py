@@ -18,7 +18,6 @@ class Dataset(torch.utils.data.Dataset):
 		return len(self.data)
 
 	def __getitem__(self, index):
-
 		sample = self.encode(self.data[index])
 		return sample
 
@@ -34,7 +33,7 @@ class Dataset(torch.utils.data.Dataset):
 	def encode(self, haiku):
 		"""encodes a single haiku"""
 
-		result= F.one_hot(torch.tensor([self.token_to_ix[char] for char in haiku]), len(self.unique_tokens))
+		result= F.one_hot(torch.tensor([self.token_to_ix[char] for char in haiku]), len(self.unique_tokens)).float()
 		return result
 
 	def decode(self, tensor):

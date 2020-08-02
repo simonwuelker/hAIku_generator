@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
 import numpy as np
 
 
@@ -38,9 +39,6 @@ class generator(nn.Module):
 		output = self.network(lstm_out)
 		return output
 
-	def reset_hidden(self, batch_size):
-		self.hidden = (torch.rand(self.n_layers, batch_size, self.hidden_size),
-						torch.rand(self.n_layers, batch_size, self.hidden_size))
 
 	def example(self, batch_size):
 		"""returns one generated sequence and optimizes the generator"""
@@ -58,9 +56,8 @@ class generator(nn.Module):
 		# 	outputs = self(input)
 		# 	index = Tools.sample_from_output(outputs[-1])
 		# 	text = f"{text}{dataset.ix_to_token[index.item()]}"
-
-		# print(f"Output: {text}")
-		return 1# output.detach()
+		output = F.one_hot(torch.randint(28, size=(batch_size,10)), 28).float()
+		return output
 
 	def loadModel(self, path=None):
 		if path is None:
@@ -69,3 +66,7 @@ class generator(nn.Module):
 
 	def saveModel(self):
 		torch.save(self.state_dict(), self.chkpt_path)
+
+	def reset_hidden(self, batch_size):
+		self.hidden = (torch.rand(self.n_layers, batch_size, self.hidden_size),
+						torch.rand(self.n_layers, batch_size, self.hidden_size))
