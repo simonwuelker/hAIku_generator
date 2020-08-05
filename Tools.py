@@ -123,10 +123,3 @@ def NLLLoss(input, target, use_baseline=False):
 		result[batch_ix] = -1 * torch.dot(input[batch_ix], target[batch_ix])
 
 	return torch.mean(result)
-
-
-def sample_from_output(prob):
-	"""samples one element from a given log probability distribution"""
-	# top k oder nucleus ist auch gut, einfach mal durchprobieren!
-	index = torch.multinomial(torch.exp(prob), num_samples=1)
-	return index

@@ -33,9 +33,9 @@ discriminator = Discriminator.discriminator(in_size=len(dataset.unique_tokens))
 generator.train()
 discriminator.train()
 try:
-	for epoch in trange(2):
+	for epoch in trange(20):
 		for real_sample in dataloader:
-			fake_sample = generator.example(batch_size=batch_size)
+			fake_sample = generator.generate(batch_size=batch_size)
 
 			# take outputs from discriminator and log them
 			score_real = discriminator(real_sample)
@@ -49,10 +49,9 @@ try:
 			loss_d = torch.mean(-torch.log(1 - score_fake) - torch.log(score_real))
 			discriminator.losses.append(loss_d.item())
 
-			# optimize discriminator
-			discriminator.optimizer.zero_grad()
-			loss_d.backward()
-			discriminator.optimizer.step()	
+			# optimize models
+			generator.learn(fake_sample, discriminator)
+			discriminator.learn(loss_d)
 
 finally:
 	# Models are always saved, even after a KeyboardInterrupt
@@ -73,5 +72,5 @@ finally:
 	plt.xlabel("Training steps")
 	plt.legend()
 	plt.savefig("training_graphs/discriminator_scores_main")
-	plt.show()
+	# plt.show()
 	print(generator.losses)

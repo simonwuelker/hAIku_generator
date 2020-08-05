@@ -39,7 +39,12 @@ class discriminator(nn.Module):
 
 		lstm_out, self.hidden = self.lstm(input, self.hidden)
 		output = self.network(lstm_out)
-		return output.view(batch_size, -1)[:, -1]  # return last value from every batch
+		return output[:, -1]  # return last value from every batch
+		
+	def learn(self, loss_d):
+		self.optimizer.zero_grad()
+		loss_d.backward()
+		self.optimizer.step()	
 		
 	def loadModel(self):
 		self.load_state_dict(torch.load(self.chkpt_path))
