@@ -45,7 +45,7 @@ class generator(nn.Module):
 		"""returns one generated sequence and optimizes the generator"""
 		self.reset_hidden(batch_size)
 
-		haiku_length = 2#np.random.randint(15, 20)  # length boundaries are arbitrary
+		haiku_length = np.random.randint(15, 20)  # length boundaries are arbitrary
 		output = torch.zeros(batch_size, haiku_length, self.out_size)
 		self.last_probs = torch.zeros(batch_size, haiku_length, self.out_size)
 		output[0, 0, seed] = 1
@@ -55,7 +55,7 @@ class generator(nn.Module):
 			self.reset_hidden(batch_size)  # every step is essentially a new forward pass
 
 			# forward pass
-			input = output[:, :i + 1].detach()
+			input = output[:, :i + 1].clone()  # inplace operation, clone is necessary
 			probs = self(input)[:, -1]
 
 			# choose action
@@ -64,7 +64,6 @@ class generator(nn.Module):
 			# encode action
 			output[0, i] = F.one_hot(action, self.out_size)
 
-		# output = F.one_hot(torch.randint(28, size=(batch_size,10)), 28).float()
 		return output
 
 	def learn(self, fake_sample, discriminator):
@@ -109,7 +108,7 @@ class generator(nn.Module):
 
 			target = F.softmax(action_value_table, dim=1)
 			loss[index] = self.criterion(self.last_probs[:, index], target)
-		print(self.last_probs[:, index])
+
 		# optimize the generator
 		total_loss = torch.mean(loss)
 		self.optimizer.zero_grad()
@@ -121,8 +120,10 @@ class generator(nn.Module):
 			path = self.pretrained_path
 		self.load_state_dict(torch.load(path))
 
-	def saveModel(self):
-		torch.save(self.state_dict(), self.chkpt_path)
+	def saveModel(self, path=None):
+		if path is None:
+			path = self.chkpt_path
+		torch.save(self.state_dict(), path)
 
 	def reset_hidden(self, batch_size):
 		self.hidden = (torch.rand(self.n_layers, batch_size, self.hidden_size),

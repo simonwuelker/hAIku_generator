@@ -36,6 +36,7 @@ try:
 	for epoch in trange(20):
 		for real_sample in dataloader:
 			fake_sample = generator.generate(batch_size=batch_size)
+			print(dataset.decode(fake_sample))
 
 			# take outputs from discriminator and log them
 			score_real = discriminator(real_sample)
