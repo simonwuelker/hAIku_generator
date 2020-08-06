@@ -1,5 +1,8 @@
-# https://medium.com/swlh/introduction-to-lstms-and-neural-network-text-generation-bd47adaf55fe
-# hAIku poem generator
+# enable imports from parent directory
+import sys
+import os
+sys.path.append(os.path.realpath(".."))
+
 import torch
 import torch.utils.data  # cant inherit from torch.utils.data.Dataset otherwise
 import numpy as np
@@ -14,7 +17,7 @@ batch_size = 1
 torch.manual_seed(1)
 np.random.seed(1)
 
-dataset = Dataset(path="data/small_dataset.txt")
+dataset = Dataset(path="../data/small_dataset.txt")
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
 
 # Init/Load model
@@ -72,7 +75,7 @@ finally:
 	plt.ylabel("Avg. Score")
 	plt.xlabel("Epoch")
 	plt.legend()
-	plt.savefig("training_graphs/disc_pretrain_scores")
+	plt.savefig("../training_graphs/disc_pretrain_scores")
 	plt.show()
 
 	# TESTING
