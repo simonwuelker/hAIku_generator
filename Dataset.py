@@ -38,17 +38,17 @@ class Dataset(torch.utils.data.Dataset):
 
 	def decode(self, tensor):
 		"""
-		Decodes a tensor of shape[Sequence_Length, batch_size, num_Classes]
+		Decodes a tensor of shape[batch_size, seq_length, num_Classes]
 		into  a list of strings
 		"""
-		seq_length = tensor.shape[0]
-		batch_size = tensor.shape[1]
+		seq_length = tensor.shape[1]
+		batch_size = tensor.shape[0]
 
 		result = []
 		for batch_ix in range(batch_size):
 			batchstring = ""
 			for seq_ix in range(seq_length):
-				batchstring += self.ix_to_token[tensor[seq_ix, batch_ix].item()]
+				batchstring += self.ix_to_token[torch.argmax(tensor[batch_ix, seq_ix]).item()]
 			result.append(batchstring)
 
 		return result
