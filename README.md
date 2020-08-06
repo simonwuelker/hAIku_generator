@@ -4,7 +4,10 @@
 # Haiku Generator
 This Repository contains an implementation of the SeqGan Architecture proposed in [this Paper](https://arxiv.org/pdf/1609.05473.pdf) for generating Haikus. It consists, of two main branches, `charlevel`, which generates text
 character by character and `Embeddings`, which uses the pytorch Embeddings to generate text.
-This project is my submission for the [BW-KI](https://bw-ki.de/) Competition
+This Branch, `Embeddings`, attempts to extend the seqGAN Algorithm into a continuous Actionspace by replacing the policy gradient
+with a Deep Deterministic Policy Gradient(DDPG) Agent which outputs a single action instead of a probability distribution
+across all actions.
+This project is my submission for the [BW-KI 2020](https://bw-ki.de/) Competition
 
 ## Usage
 For the sake of keeping it simple, I am not uploading my dataset here. However, you can just use the Haikus from
@@ -17,7 +20,7 @@ If you have acquired enough Haikus, place them in the data folder and run the [p
 
 ## Examples
 These are some handpicked samples from the generator.
->lotta dreams regard condoms
+>
 >
 
 ## Future Goals
