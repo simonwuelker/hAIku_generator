@@ -23,15 +23,22 @@ class Dataset(torch.utils.data.Dataset):
 
 		return haikus, OrderedSet([word for haiku in haikus for word in haiku.split()])
 
-	def encode(self, haiku):
-		""" Encodes a single line of text """
+	def encode(self, haiku, indices=True):
+		""" Encodes a single line of text into either indices or word tensors"""
 		words = haiku.split()
-		result = torch.empty(len(words))
-		for word_ix, word in enumerate(words):
-			result[word_ix] = self.word_to_ix[word]
+
+		if indices:
+			result = torch.empty(len(words))
+			for word_ix, word in enumerate(words):
+				result[word_ix] = self.word_to_ix[word]
+		else:
+			result = torch.empty(len(words), self.embedding.embedding_dim)
+			for word_ix, word in 
 		return result
 
-	def decode(self, tensor):
+	def decode(self, tensor, indices=True):
+		""" Decodes either a """
+		#WIE KANN DAS NE GUTE IDEE SEINMIT DEN EMBEDDINGS...
 		batch_size = tensor.shape[0]
 		seq_length = tensor.shape[1]
 
