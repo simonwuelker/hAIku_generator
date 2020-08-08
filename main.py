@@ -38,27 +38,29 @@ torch.manual_seed(1)
 np.random.seed(1)
 
 dataset = Dataset(path="data/small_dataset.txt")
-dataloader_ = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
 
 # Init models
-generator = Generator.generator(in_size=len(dataset.unique_tokens), out_size=len(dataset.unique_tokens))
-discriminator = Discriminator.discriminator(in_size=len(dataset.unique_tokens))
+generator = Generator.generator(in_size=dataset.embedding_dim, out_size=dataset.embedding_dim)
+discriminator = Discriminator.discriminator(in_size=dataset.embedding_dim)
 
 # load models
-generator.load_state_dict(torch.load("models/Generator_pretrained.pt"))
-# discriminator.load_state_dict(torch.load("models/Discriminator.pt"))
+generator.loadModel()
+discriminator.loadModel()
 
 # TRAINING
+# generator.train()
 discriminator.train()
-generator.train()
 
 try:
 	for epoch in trange(10):
-		for real_sample in dataloader_:
+		for real_sample in dataloader:
+			print(dataset.decode(real_sample))
 			fake_sample = example()
 
 			# take outputs from discriminator
 			score_real = discriminator(real_sample)
+			assert False
 			score_fake = discriminator(fake_sample)
 
 			# Save scores for evaluation

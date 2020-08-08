@@ -16,8 +16,5 @@ corpus = api.load('text8')
 from gensim.models.word2vec import Word2Vec
 model = Word2Vec(corpus)
 
-
 # save the model
-model.save("word2vec.model")
-import torch
-torch.save(torch.tensor(model.wv.wv.vectors), "../models/embedding.pt")
+model.save("../models/word2vec.model")
