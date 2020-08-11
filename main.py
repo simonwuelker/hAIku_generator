@@ -78,8 +78,8 @@ try:
 
 finally:
 	# Models are always saved, even after a KeyboardInterrupt
-	torch.save(discriminator.state_dict(), "models/Discriminator.pt")
-	torch.save(generator.state_dict(), "models/Generator.pt")
+	generator.loadModel()
+	discriminator.loadModel()
 
 	# TESTING
 	discriminator.eval()
@@ -96,7 +96,7 @@ finally:
 	ax.plot(discriminator.scores_fake, label="Fake")
 	# ax.plot(generator.losses[2:], label="Generator Loss")
 	plt.ylabel("Loss")
-	plt.xlabel("training duration")
+	plt.xlabel("Episodes")
 	ax.legend()
 
 	plt.show()
