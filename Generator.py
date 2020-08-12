@@ -4,8 +4,6 @@ import torch.optim as optim
 import torch.nn.functional as F
 import numpy as np
 import Tools
-torch.autograd.set_detect_anomaly(True)
-
 
 class generator(nn.Module):
 	def __init__(self, in_size, out_size, hidden_size=400, n_layers=2, lr=0.005):
