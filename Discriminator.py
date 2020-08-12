@@ -13,6 +13,7 @@ class discriminator(nn.Module):
 		self.hidden_size = hidden_size
 		self.n_layers = n_layers
 		self.chkpt_path = "models/Discriminator.pt"
+		self.pretrained_path = "models/Discriminator_pretrained.pt"
 
 		# LSTM Architecture
 		self.lstm = nn.LSTM(in_size, hidden_size, n_layers, batch_first=True)
@@ -46,11 +47,15 @@ class discriminator(nn.Module):
 		loss_d.backward()
 		self.optimizer.step()	
 		
-	def loadModel(self):
-		self.load_state_dict(torch.load(self.chkpt_path))
+	def loadModel(self, path=None):
+		if path is None:
+			path = self.pretrained_path
+		self.load_state_dict(torch.load(path))
 
-	def saveModel(self):
-		torch.save(self.state_dict(), self.chkpt_path)
+	def saveModel(self, path=None):
+		if path is None:
+			path = self.chkpt_path
+		torch.save(self.state_dict(), path)
 
 	def reset_hidden(self, batch_size):
 		self.hidden = (torch.rand(self.n_layers, batch_size, self.hidden_size), 
