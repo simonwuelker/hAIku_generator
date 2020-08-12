@@ -3,72 +3,17 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import numpy as np
-import os
-
-
-class OUActionNoise(object):
-	def __init__(self, mu, sigma=0.15, theta=0.2, dt=1e-2, x0=None):
-		self.theta = theta
-		self.sigma = sigma
-		self.mu = mu
-		self.dt = dt
-		self.x0 = x0
-		self.reset()
-
-	def __call__(self):
-		x = self.x_prev + self.theta * (self.mu - self.x_prev) * self.dt + self.sigma * np.sqrt(self.dt) * np.random.normal(size=self.mu.shape)
-		self.x_prev = x
-		return x
-
-	def reset(self):
-		self.x_prev = self.x0 if self.x0 is not None else np.zeros_like(self.mu)
-
-
-class ReplayBuffer(object):
-	def __init__(self, state_shape, action_shape, memsize=100000):
-		self.memsize = memsize
-		self.mem_cntr = 0
-		self.state_memory = np.empty((memsize, state_shape))
-		self.action_memory = np.empty((memsize, action_shape))
-		self.reward_memory = np.empty(memsize)
-		self.new_state_memory = np.empty((memsize, state_shape))
-		self.done_memory = np.empty(memsize)
-
-	def store(self, state, action, reward, new_state, done):
-		index = self.mem_cntr % self.memsize
-
-		self.state_memory[index] = state
-		self.action_memory[index] = action
-		self.reward_memory[index] = reward
-		self.new_state_memory[index] = new_state
-		self.done_memory[index] = done
-
-		self.mem_cntr += 1
-
-	def sample(self, batch_size):
-		# prevent sampling parts of the buffer that have not yet been filled
-		max_addr = min(self.memsize, self.mem_cntr)
-
-		batch = np.random.choice(max_addr, batch_size)
-
-		states = self.state_memory[batch]
-		actions = self.action_memory[batch]
-		rewards = self.reward_memory[batch]
-		new_states = self.new_state_memory[batch]
-		done = self.new_state_memory[batch]
-
-		return states, actions, rewards, new_states, done
 
 
 class CriticNetwork(nn.Module):
-	def __init__(self, beta, input_dims, fc1_dims, fc2_dims, n_actions, name, chkpt_dir="tmp/ddpg"):
+	def __init__(self, beta, embedding_dim, name, save_path="models/"):
 		super(CriticNetwork, self).__init__()
-		self.input_dims = input_dims
-		self.fc1_dims = fc1_dims
-		self.fc2_dims = fc2_dims
-		self.n_actions = n_actions
-		self.checkpoint_file = os.path.join(chkpt_dir, name+"_ddpg")
-		self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
+		self.fc1_dims = 400
+		self.fc2_dims = 300
+		self.n_layers = 2
+		self.embedding_dim = embedding_dim
+		self.checkpoint_file = save_path + name		
+		self.fc1 = nn.Linear(self.embedding_dim, self.fc1_dims)
 
 		# This basically just speeds up convergence by initializing the lin layer
 		f1 = 1 / np.sqrt(self.fc1.weight.data.size()[0])
@@ -82,7 +27,7 @@ class CriticNetwork(nn.Module):
 		torch.nn.init.uniform_(self.fc2.bias.data, -f2, f2)
 		self.bn2 = nn.LayerNorm(self.fc2_dims)
 
-		self.action_value = nn.Linear(self.n_actions, fc2_dims)
+		self.action_value = nn.Linear(self.embedding_dim, self.fc2_dims)
 		f3 = 0.003
 		self.q = nn.Linear(self.fc2_dims, 1)
 		torch.nn.init.uniform_(self.fc2.weight.data, -f3, f3)
@@ -110,17 +55,20 @@ class CriticNetwork(nn.Module):
 	def load_checkpoint(self):
 		self.load_state_dict(torch.load(self.checkpoint_file))
 
+	def reset_hidden(self, batch_size):
+		self.hidden = (torch.rand(self.n_layers, batch_size, self.hidden_size), torch.rand(self.n_layers, batch_size, self.hidden_size))
+
 
 class ActorNetwork(nn.Module):
-	def __init__(self, alpha, in_size, fc1_dims, fc2_dims, embedding_dim, name, chkpt_dir="tmp/ddpg"):
+	def __init__(self, alpha, embedding_dim, name, save_path="models/"):
 		super(ActorNetwork, self).__init__()
-		self.in_size = in_size
-		self.fc1_dims = fc1_dims
-		self.fc2_dims = fc2_dims
-		self.checkpoint_file = os.path.join(chkpt_dir, name + "_ddpg")
+		self.fc1_dims = 400
+		self.fc2_dims = 300
+		self.n_layers = 2
+		self.embedding_dim = embedding_dim
+		self.checkpoint_file = save_path + name
 
-		self.embedding = nn.Embedding(self.in_size, self.embedding_dim)
-		self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
+		self.fc1 = nn.Linear(self.embedding_dim, self.fc1_dims)
 		f1 = 1 / np.sqrt(self.fc1.weight.data.size()[0])
 		torch.nn.init.uniform_(self.fc1.weight.data, -f1, f1)
 		torch.nn.init.uniform_(self.fc1.bias.data, -f1, f1)
@@ -133,7 +81,7 @@ class ActorNetwork(nn.Module):
 		self.bn2 = nn.LayerNorm(self.fc2_dims)
 
 		f3 = 0.003
-		self.mu = nn.Linear(self.fc2_dims, self.n_actions)
+		self.mu = nn.Linear(self.fc2_dims, self.embedding_dim)
 		torch.nn.init.uniform_(self.mu.weight.data, -f3, f3)
 		torch.nn.init.uniform_(self.mu.bias.data, -f3, f3)
 
@@ -148,7 +96,6 @@ class ActorNetwork(nn.Module):
 		x = self.bn2(x)
 		x = F.relu(x)
 		x = torch.tanh(self.mu(x))
-
 		return x
 
 	def save_checkpoint(self):
@@ -157,20 +104,20 @@ class ActorNetwork(nn.Module):
 	def load_checkpoint(self):
 		self.load_state_dict(torch.load(self.checkpoint_file))
 
+	def reset_hidden(self, batch_size):
+		self.hidden = (torch.rand(self.n_layers, batch_size, self.hidden_size), torch.rand(self.n_layers, batch_size, self.hidden_size))
 
-class generator():
-	def __init__(self, alpha, beta, in_size, embedding_dim, fc1_dim=400, fc2_dim=300, batch_first=True):
-		super(generator, self).__init__()
 
-		self.in_size = in_size
+class Generator():
+	def __init__(self, alpha, beta, embedding_dim, batch_first=True):
+		super(Generator, self).__init__()
 		self.embedding_dim = embedding_dim
 		self.losses = []
-		# self.ReplayBuffer = ReplayBuffer(self.embedding_dim, self.out_size)
-		# self.noise = OUActionNoise(mu=np.zeros(out_size))
-		self.actor = ActorNetwork(alpha, in_size, fc1_dim, fc2_dim, embedding_dim, n_actions, "actor")
-		self.critic = CriticNetwork(beta, in_size, fc1_dim, fc2_dim, embedding_dim, n_actions, "critic")
-		self.target_actor = ActorNetwork(alpha, in_size, fc1_dim, fc2_dim, embedding_dim, n_actions, "target_actor")
-		self.target_critic = CriticNetwork(beta, in_size, fc1_dim, fc2_dim, embedding_dim, n_actions, "target_critic")
+		# define the core DDPG networks
+		self.actor = ActorNetwork(alpha, embedding_dim, "actor")
+		self.critic = CriticNetwork(beta, embedding_dim, "critic")
+		self.target_critic = CriticNetwork(beta, embedding_dim, "target_critic")
+		self.target_actor = ActorNetwork(alpha, embedding_dim, "target_actor")
 
 	def __call__(self, input):
 		"""
@@ -204,18 +151,13 @@ class generator():
 			actor_state_dict[name] = tau * actor_state_dict[name].clone() + (1 - tau) * target_actor_state_dict[name].clone()
 		self.target_actor.load_state_dict(actor_state_dict)
 
-	def reset_hidden(self, batch_size):
-		self.hidden = (torch.rand(self.n_layers, batch_size, self.hidden_size), torch.rand(self.n_layers, batch_size, self.hidden_size))
-
 	def save_models(self):
-		print("Saving...")
 		self.actor.save_checkpoint()
 		self.critic.save_checkpoint()
 		self.target_actor.save_checkpoint()
 		self.target_critic.save_checkpoint()
 
 	def load_models(self):
-		print("Loading...")
 		self.actor.load_checkpoint()
 		self.critic.load_checkpoint()
 		self.target_actor.load_checkpoint()
