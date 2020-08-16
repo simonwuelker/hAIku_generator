@@ -17,22 +17,22 @@ batch_size = 1
 torch.manual_seed(1)
 np.random.seed(1)
 
-dataset = Dataset(path="../data/small_dataset.txt")
+dataset = Dataset(path_data="../data/small_dataset.txt", path_model="../models/word2vec.model")
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
 
 # Init/Load model
 discriminator = Discriminator.discriminator(in_size=len(dataset.unique_tokens))
-# discriminator.loadModel()
+discriminator.loadModel(path="../models/Discriminator_pretrained.pt")
 
 # TRAINING
 discriminator.train()
 try:
-	for epoch in trange(50):
+	for epoch in trange(2):
 		total_loss = 0
 		total_score_real = 0
 		total_score_fake = 0
 		for real_sample in dataloader:
-			fake_sample = torch.tensor(np.random.randint(len(dataset.unique_tokens), size=real_sample.shape))
+			fake_sample = torch.tensor(np.random.randint(len(dataset.unique_tokens), size=real_sample.shape), dtype=torch.float)
 
 			# REAL SAMPLE
 			discriminator.reset_hidden(batch_size)
@@ -46,7 +46,7 @@ try:
 			# FAKE SAMPLE
 			discriminator.reset_hidden(batch_size)
 
-			output = discriminator(fake_sample.long())
+			output = discriminator(fake_sample)
 			target = torch.zeros(output.shape)
 			loss += discriminator.criterion(output, target)
 			total_score_fake += output.item()
@@ -65,7 +65,7 @@ try:
 
 finally:
 	# Models are always saved, even after a KeyboardInterrupt
-	discriminator.saveModel()
+	discriminator.saveModel(path="../models/Discriminator.pt")
 
 	# plot the graph of the different losses over time
 	# fig, ax = plt.subplots()

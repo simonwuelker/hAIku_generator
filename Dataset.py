@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 import gensim
 
 class Dataset(torch.utils.data.Dataset):
@@ -22,12 +23,13 @@ class Dataset(torch.utils.data.Dataset):
 		words = haiku.split()
 		result = torch.empty(len(words), self.embedding_dim)
 		for index, word in enumerate(words):
-			result[index] = torch.tensor(self.model.wv[word])
+			result[index] = torch.tensor(np.copy(self.model.wv[word]))
 		
 		return result
 
 	def decode(self, tensor):
 		# this function is pretty slow
+		tensor = tensor.detach()
 		batch_size = tensor.shape[0]
 		seq_length = tensor.shape[1]
 
