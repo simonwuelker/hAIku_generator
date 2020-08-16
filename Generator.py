@@ -3,35 +3,24 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import numpy as np
+import random
 
 
 class CriticNetwork(nn.Module):
-	def __init__(self, beta, embedding_dim, name, save_path="models/"):
+	def __init__(self, beta, n_actions, name, save_path="models/"):
 		super(CriticNetwork, self).__init__()
 		self.fc1_dims = 400
 		self.fc2_dims = 300
 		self.n_layers = 2
-		self.embedding_dim = embedding_dim
-		self.checkpoint_file = save_path + name		
-		self.fc1 = nn.Linear(self.embedding_dim, self.fc1_dims)
+		self.n_actions = n_actions
+		self.checkpoint_file = save_path + name
 
-		# This basically just speeds up convergence by initializing the lin layer
-		f1 = 1 / np.sqrt(self.fc1.weight.data.size()[0])
-		torch.nn.init.uniform_(self.fc1.weight.data, -f1, f1)
-		torch.nn.init.uniform_(self.fc1.bias.data, -f1, f1)
+		self.fc1 = nn.Linear(self.n_actions, self.fc1_dims)
 		self.bn1 = nn.LayerNorm(self.fc1_dims)
-
 		self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
-		f2 = 1 / np.sqrt(self.fc2.weight.data.size()[0])
-		torch.nn.init.uniform_(self.fc2.weight.data, -f2, f2)
-		torch.nn.init.uniform_(self.fc2.bias.data, -f2, f2)
 		self.bn2 = nn.LayerNorm(self.fc2_dims)
-
-		self.action_value = nn.Linear(self.embedding_dim, self.fc2_dims)
-		f3 = 0.003
+		self.action_value = nn.Linear(self.n_actions, self.fc2_dims)
 		self.q = nn.Linear(self.fc2_dims, 1)
-		torch.nn.init.uniform_(self.fc2.weight.data, -f3, f3)
-		torch.nn.init.uniform_(self.fc2.bias.data, -f3, f3)
 
 		self.optimizer = optim.Adam(self.parameters(), lr=beta)
 
@@ -60,43 +49,27 @@ class CriticNetwork(nn.Module):
 
 
 class ActorNetwork(nn.Module):
-	def __init__(self, alpha, embedding_dim, name, save_path="models/"):
+	def __init__(self, alpha, n_actions, name, save_path="models/"):
 		super(ActorNetwork, self).__init__()
 		self.fc1_dims = 400
 		self.fc2_dims = 300
+		self.hidden_size = n_actions
 		self.n_layers = 2
-		self.embedding_dim = embedding_dim
+		self.n_actions = n_actions
 		self.checkpoint_file = save_path + name
 
-		self.fc1 = nn.Linear(self.embedding_dim, self.fc1_dims)
-		f1 = 1 / np.sqrt(self.fc1.weight.data.size()[0])
-		torch.nn.init.uniform_(self.fc1.weight.data, -f1, f1)
-		torch.nn.init.uniform_(self.fc1.bias.data, -f1, f1)
-		self.bn1 = nn.LayerNorm(self.fc1_dims)
-
-		self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
-		f2 = 1 / np.sqrt(self.fc2.weight.data.size()[0])
-		torch.nn.init.uniform_(self.fc2.weight.data, -f2, f2)
-		torch.nn.init.uniform_(self.fc2.bias.data, -f2, f2)
-		self.bn2 = nn.LayerNorm(self.fc2_dims)
-
-		f3 = 0.003
-		self.mu = nn.Linear(self.fc2_dims, self.embedding_dim)
-		torch.nn.init.uniform_(self.mu.weight.data, -f3, f3)
-		torch.nn.init.uniform_(self.mu.bias.data, -f3, f3)
+		self.lstm = nn.LSTM(input_size=n_actions, hidden_size=n_actions, num_layers=2, batch_first=True)
+		self.mu = nn.Linear(self.hidden_size, self.n_actions)
 
 		self.optimizer = optim.Adam(self.parameters(), lr=alpha)
 
 
 	def forward(self, state):
-		x = self.fc1(state)
-		x = self.bn1(x)
-		x = F.relu(x)
-		x = self.fc2(x)
-		x = self.bn2(x)
-		x = F.relu(x)
-		x = torch.tanh(self.mu(x))
-		return x
+		lstm_out, self.hidden = self.lstm(state, self.hidden)
+		# take the last value from every batch
+		lstm_last = lstm_out[:, -1]
+		actions = self.mu(lstm_last)
+		return actions
 
 	def save_checkpoint(self):
 		torch.save(self.state_dict(), self.checkpoint_file)
@@ -108,24 +81,37 @@ class ActorNetwork(nn.Module):
 		self.hidden = (torch.rand(self.n_layers, batch_size, self.hidden_size), torch.rand(self.n_layers, batch_size, self.hidden_size))
 
 
-class Generator():
-	def __init__(self, alpha, beta, embedding_dim, batch_first=True):
-		super(Generator, self).__init__()
-		self.embedding_dim = embedding_dim
+class generator():
+	def __init__(self, lr_actor, lr_critic, n_actions):
+		super(generator, self).__init__()
+		self.n_actions = n_actions
 		self.losses = []
-		# define the core DDPG networks
-		self.actor = ActorNetwork(alpha, embedding_dim, "actor")
-		self.critic = CriticNetwork(beta, embedding_dim, "critic")
-		self.target_critic = CriticNetwork(beta, embedding_dim, "target_critic")
-		self.target_actor = ActorNetwork(alpha, embedding_dim, "target_actor")
+		self.training = True # Noise is only applied during training
+		self.tau = 0.1
 
-	def __call__(self, input):
-		"""
-		Parameters:
-			Input of shape[batch, sequence]
-		"""
-		action = self.actor(input)
-		return action
+		# define the core DDPG networks
+		self.actor = ActorNetwork(lr_actor, n_actions, "actor")
+		self.critic = CriticNetwork(lr_critic, n_actions, "critic")
+		self.target_actor = ActorNetwork(lr_actor, n_actions, "target_actor")
+		self.target_critic = CriticNetwork(lr_critic, n_actions, "target_critic")
+
+	def generate(self, dataset, batch_size):
+		haiku_length = random.randint(7, 10)
+		result = torch.zeros(batch_size, haiku_length, self.n_actions)
+
+		# initiate seed
+		seed = random.choices(list(dataset.model.wv.vocab.keys()), k=batch_size)
+		for index, word in enumerate(seed):
+			result[index, 0] = torch.tensor(np.copy(dataset.model[word]))
+
+		# generate the rest of the haiku
+		self.actor.reset_hidden(batch_size=batch_size)
+		for index in range(1, haiku_length):
+			input = result[:, :index]
+			output = self.actor(input)
+			result[:, index] = output
+
+		return result
 
 	def update_network_parameters(self, tau=None):
 		if tau is None:
@@ -140,25 +126,35 @@ class Generator():
 		critic_state_dict = dict(critic_params)
 		target_actor_state_dict = dict(target_actor_params)
 		target_critic_state_dict = dict(target_critic_params)
+		print(actor_params)
+		print(actor_state_dict)
 
-		# Update Critic
+		# Update Critic dict and load it
 		for name in critic_state_dict:
 			critic_state_dict[name] = tau * critic_state_dict[name].clone() + (1 - tau) * target_critic_state_dict[name].clone()
 		self.target_critic.load_state_dict(critic_state_dict)
 
-		# Update Actor
+		# Update Actor dict and load it
 		for name in actor_state_dict:
 			actor_state_dict[name] = tau * actor_state_dict[name].clone() + (1 - tau) * target_actor_state_dict[name].clone()
 		self.target_actor.load_state_dict(actor_state_dict)
 
-	def save_models(self):
+	def saveModels(self):
 		self.actor.save_checkpoint()
 		self.critic.save_checkpoint()
 		self.target_actor.save_checkpoint()
 		self.target_critic.save_checkpoint()
 
-	def load_models(self):
+	def loadModels(self):
 		self.actor.load_checkpoint()
 		self.critic.load_checkpoint()
 		self.target_actor.load_checkpoint()
 		self.target_critic.load_checkpoint()
+
+	def train(self):
+		# maybe set state for actor/critic network as well
+		self.training = True
+
+	def eval(self):
+		self.training = False
+

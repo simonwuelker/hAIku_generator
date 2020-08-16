@@ -11,57 +11,38 @@ from Dataset import Dataset
 import matplotlib.pyplot as plt
 from tqdm import trange
 
-
-def example(haiku_length=8):
-	"""returns one generated sequence and optimizes the generator"""
-	generator.reset_hidden(batch_size=1)
-
-	result = torch.randint(len(dataset.unique_tokens), size=(1, haiku_length, 1))
-
-	# generate the missing words to complete the haiku
-	for i in range(haiku_length - 1):
-		generator.reset_hidden(batch_size=1)
-
-		output = generator(result[:, :i + 1, :])[-1]
-		# target = Tools.Q(input, output, haiku_length, discriminator, dataset)
-
-		index = Tools.sample_from_output(output)
-		result[0, i + 1] = index
-
-	return result
-
+# using a set seed for Reproducibility
+torch.manual_seed(1)
+np.random.seed(1)
 
 modelsave_path = "models/"
 batch_size = 1
 
-torch.manual_seed(1)
-np.random.seed(1)
-
-dataset = Dataset(path="data/small_dataset.txt")
+dataset = Dataset(path_data="data/small_dataset.txt")
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
 
 # Init models
-generator = Generator.generator(in_size=dataset.embedding_dim, out_size=dataset.embedding_dim)
+generator = Generator.generator(lr_actor=0.01, lr_critic=0.01, n_actions=dataset.embedding_dim)
 discriminator = Discriminator.discriminator(in_size=dataset.embedding_dim)
 
 # load models
-generator.loadModel()
+# generator.loadModels()
 discriminator.loadModel()
 
 # TRAINING
-# generator.train()
+generator.train()
 discriminator.train()
 
 try:
 	for epoch in trange(10):
 		for real_sample in dataloader:
+			fake_sample = generator.generate(dataset, batch_size)
 			print(dataset.decode(real_sample))
-			fake_sample = example()
+			print(dataset.decode(fake_sample))
 
 			# take outputs from discriminator
 			score_real = discriminator(real_sample)
-			assert False
-			score_fake = discriminator(fake_sample)
+			score_fake = discriminator(fake_sample.detach())
 
 			# Save scores for evaluation
 			discriminator.scores_real.append(score_real.item())
@@ -78,17 +59,17 @@ try:
 
 finally:
 	# Models are always saved, even after a KeyboardInterrupt
-	generator.loadModel()
-	discriminator.loadModel()
+	generator.saveModels()
+	discriminator.saveModel()
 
 	# TESTING
 	discriminator.eval()
 	generator.eval()
 
 	with torch.no_grad():
-		# could probably just implement a batch system in example and avoid for loop
-		for haiku_ix in range(10):
-			print(f"Haiku Nr.{haiku_ix}: {dataset.decode(example())}")
+		haikus = dataset.decode(generator.generate(dataset, 10))
+		for haiku in haikus:
+			print(haiku)
 
 	# plot the graph of the different losses over time
 	fig, ax = plt.subplots()
