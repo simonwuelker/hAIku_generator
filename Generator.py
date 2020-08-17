@@ -105,8 +105,8 @@ class generator():
 			result[index, 0] = torch.tensor(np.copy(dataset.model[word]))
 
 		# generate the rest of the haiku
-		self.actor.reset_hidden(batch_size=batch_size)
 		for index in range(1, haiku_length):
+			self.actor.reset_hidden(batch_size=batch_size)
 			input = result[:, :index]
 			output = self.actor(input)
 			result[:, index] = output
