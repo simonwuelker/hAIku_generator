@@ -6,7 +6,7 @@ import numpy as np
 import Tools
 
 class generator(nn.Module):
-	def __init__(self, in_size, out_size, hidden_size=400, n_layers=2, lr=0.005):
+	def __init__(self, in_size, out_size, hidden_size=400, n_layers=2, lr=0.0001):
 		super(generator, self).__init__()
 
 		self.in_size = in_size
@@ -30,37 +30,44 @@ class generator(nn.Module):
 			nn.Linear(128, out_size),
 			nn.Softmax(dim=1)
 		)
-		self.criterion = nn.MSELoss()
+		self.criterion = nn.CrossEntropyLoss()
 		self.optimizer = optim.Adam(self.parameters(), self.lr)
 
 	def forward(self, input):
 		lstm_out, self.hidden = self.lstm(input, self.hidden)
-		output = self.network(lstm_out)
+		output = self.network(lstm_out.reshape(-1, self.hidden_size))
+		output = F.relu(output)
+		output = output.view(input.shape[0], -1, self.out_size)
 		return output
 
-
-	def generate(self, batch_size, seed=4):
+	def generate(self, batch_size, seed=None):
 		"""returns one generated sequence and optimizes the generator"""
 		self.reset_hidden(batch_size)
 
-		haiku_length = np.random.randint(15, 20)  # length boundaries are arbitrary
+		haiku_length = 5#np.random.randint(15, 20)  # length boundaries are arbitrary
 		output = torch.zeros(batch_size, haiku_length, self.out_size)
-		self.last_probs = torch.zeros(batch_size, haiku_length, self.out_size)
-		output[0, 0, seed] = 1
+		self.action_memory = torch.zeros_like(batch_size, haiku_length, self.out_size)
+		if seed is not None:
+			output[:, 0, seed] = 1
 
 		# generate sequence starting from a given seed
-		for i in range(haiku_length):
+		for i in range(1, haiku_length):
 			self.reset_hidden(batch_size)  # every step is essentially a new forward pass
 
 			# forward pass
-			input = output[:, :i + 1].clone()  # inplace operation, clone is necessary
-			probs = self(input)[:, -1]
+			input = output[:, :i].clone()  # inplace operation, clone is necessary
+			out = self(input)[:, -1].view(batch_size, self.out_size)
+
+			# apply softmax without the e power thingy as relu has removed all negative values
+			probs = torch.true_divide(out, torch.sum(out, dim=1).view(batch_size, 1))
+			self.action_memory[:, i] = probs
+			print(self.last_probs[:, i])			
 
 			# choose action
-			self.last_probs[:, i] = F.softmax(probs, dim=1)
-			action = torch.multinomial(self.last_probs[:, i], num_samples=1)
+			action = torch.multinomial(probs, num_samples=1).view(batch_size)
+	
 			# encode action
-			output[0, i] = F.one_hot(action, self.out_size)
+			output[:, i] = F.one_hot(action, self.out_size)
 
 		return output
 
@@ -103,8 +110,11 @@ class generator(nn.Module):
 
 				# save that score to the actionvalue table
 				action_value_table[:, action] = score.detach()
-
+			# since there are no negative rewards, no power is needed in softmax
+			# ADD HERE
+			print(action_value_table.shape)
 			target = F.softmax(action_value_table, dim=1)
+			target = torch.true_divide
 			loss[index] = self.criterion(self.last_probs[:, index], target)
 
 		# optimize the generator
@@ -124,5 +134,5 @@ class generator(nn.Module):
 		torch.save(self.state_dict(), path)
 
 	def reset_hidden(self, batch_size):
-		self.hidden = (torch.rand(self.n_layers, batch_size, self.hidden_size),
-						torch.rand(self.n_layers, batch_size, self.hidden_size))
+		self.hidden = (torch.zeros(self.n_layers, batch_size, self.hidden_size),
+						torch.zeros(self.n_layers, batch_size, self.hidden_size))

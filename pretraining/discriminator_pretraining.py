@@ -17,7 +17,7 @@ batch_size = 1
 torch.manual_seed(1)
 np.random.seed(1)
 
-dataset = Dataset(path="../data/small_dataset.txt")
+dataset = Dataset(path="data/small_dataset.txt")
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
 
 # Init/Load model
@@ -27,7 +27,7 @@ discriminator = Discriminator.discriminator(in_size=len(dataset.unique_tokens))
 # TRAINING
 discriminator.train()
 try:
-	for epoch in trange(2):
+	for epoch in trange(100):
 		total_loss = 0
 		total_score_real = 0
 		total_score_fake = 0
@@ -65,7 +65,7 @@ try:
 
 finally:
 	# Models are always saved, even after a KeyboardInterrupt
-	discriminator.saveModel(path="../models/Discriminator.pt")
+	discriminator.saveModel(path="models/Discriminator.pt")
 
 	# plot the graph of the different losses over time
 	# fig, ax = plt.subplots()
@@ -75,7 +75,7 @@ finally:
 	plt.ylabel("Avg. Score")
 	plt.xlabel("Epoch")
 	plt.legend()
-	plt.savefig("../training_graphs/disc_pretrain_scores")
+	plt.savefig("training_graphs/disc_pretrain_scores")
 	plt.show()
 
 	# TESTING

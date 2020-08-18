@@ -22,36 +22,34 @@ dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
 
 # Init model
 generator = Generator.generator(in_size=len(dataset.unique_tokens), out_size=len(dataset.unique_tokens))
-# generator.loadModel()
+generator.loadModel()
 
 # TRAINING
 generator.train()
 try:
-	for epoch in trange(2):
+	for epoch in trange(1000):
 		count = 0
 		for real_sample in dataloader:
-			total_loss = 0
+			loss = torch.zeros(real_sample.shape[1] - 1)
 
 			#let the generator predict every single character
-			for index in range(real_sample.shape[1] - 1):
-				if index == 0:
-					input = torch.zeros(batch_size, 1, len(dataset.unique_tokens))
-				else:
-					input = real_sample[:, :index]
-
-				target = real_sample[:, index]
-
+			for index in range(1, real_sample.shape[1]):
 				generator.reset_hidden(batch_size)
+				input = real_sample[:, :index]
+
+				target = torch.argmax(real_sample[:, index], dim=1).view(batch_size)
 				output = generator(input)[:, -1]
 
-				total_loss += generator.criterion(output, target)
+				loss[index - 1] = generator.criterion(output, target)
+
+			mean_loss = torch.mean(loss)
 
 			# optimize generator
 			generator.optimizer.zero_grad()
-			total_loss.backward()
+			mean_loss.backward()
 			generator.optimizer.step()
 
-			generator.losses.append(total_loss.item())
+			generator.losses.append(mean_loss.item())
 
 finally:
 	# Models are always saved, even after a KeyboardInterrupt
@@ -60,8 +58,9 @@ finally:
 	# TESTING
 	generator.eval()
 	with torch.no_grad():
-		# add tests in here
-		pass
+		haikus = dataset.decode(generator.generate(batch_size=10, seed=7))
+		for haiku in haikus:
+			print(haiku)
 
 	# plot the graph of loss over time
 	plt.plot(generator.losses, label="Loss")
@@ -70,4 +69,3 @@ finally:
 	plt.legend()
 
 	plt.show()
-	print(generator.losses)
