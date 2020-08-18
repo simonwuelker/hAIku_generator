@@ -27,7 +27,7 @@ generator.loadModel()
 # TRAINING
 generator.train()
 try:
-	for epoch in trange(1000):
+	for epoch in trange(100):
 		count = 0
 		for real_sample in dataloader:
 			loss = torch.zeros(real_sample.shape[1] - 1)

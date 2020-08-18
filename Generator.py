@@ -15,6 +15,7 @@ class generator(nn.Module):
 		self.out_size = out_size
 		self.lr = lr
 		self.losses = []
+		self.discount = 0.9
 		self.pretrained_path = "models/Generator_pretrained.pt"
 		self.chkpt_path = "models/Generator.pt"
 
@@ -46,7 +47,7 @@ class generator(nn.Module):
 
 		haiku_length = 5#np.random.randint(15, 20)  # length boundaries are arbitrary
 		output = torch.zeros(batch_size, haiku_length, self.out_size)
-		self.action_memory = torch.zeros_like(batch_size, haiku_length, self.out_size)
+		self.action_memory = torch.zeros(batch_size, haiku_length)
 		if seed is not None:
 			output[:, 0, seed] = 1
 
@@ -60,68 +61,96 @@ class generator(nn.Module):
 
 			# apply softmax without the e power thingy as relu has removed all negative values
 			probs = torch.true_divide(out, torch.sum(out, dim=1).view(batch_size, 1))
-			self.action_memory[:, i] = probs
-			print(self.last_probs[:, i])			
 
-			# choose action
-			action = torch.multinomial(probs, num_samples=1).view(batch_size)
+			# sample an action and save the log probs of it
+			actions = torch.multinomial(probs, num_samples=1).view(batch_size)
+			log_probs = torch.zeros(batch_size)
+			for batch in range(batch_size):
+				log_probs[batch] = torch.log(probs[batch, actions[batch]])
+			self.action_memory[:, i] = log_probs			
 	
 			# encode action
-			output[:, i] = F.one_hot(action, self.out_size)
+			output[:, i] = F.one_hot(actions, self.out_size)
 
 		return output
 
 	def learn(self, fake_sample, discriminator):
-		#optimize the generator based on every character choice in the haiku
-		batch_size = fake_sample.shape[0]
-		loss = torch.zeros(fake_sample.shape[1])
-		for index in range(fake_sample.shape[1]):
-			seed = fake_sample[:, index]
-			action_value_table = torch.zeros(batch_size, self.out_size)
+		# This is just plain REINFORCE
 
-			# simulate every action once
-			for action in range(self.out_size):
-				print(f"{index} - {action}")
-				# initiate starting sequence
-				completed = torch.zeros(fake_sample.shape)
-				completed[:, :index] = seed
+		# fill the reward memory using Monte Carlo
+		self.reward_memory = torch.zeros_like(self.action_memory)
+		for timestep in range(1, len(fake_sample)): # the generator didnt take the first action, it was the seed
+			# initiate starting sequence
+			completed = torch.zeros_like(fake_sample)
+			completed[:, :timestep] = fake_sample[:, :timestep]
 
-				# take the action
-				completed[:, index, action] = 1
+			# rollout the remaining part of the sequence, rolloutpolicy = generator policy
+			for j in range(timestep + 1, fake_sample.shape[1]):
+				self.reset_hidden(batch_size)
+				input = completed[:, :j].view(-1, j, self.out_size)
 
-				# rollout the remaining part of the sequence, rolloutpolicy = generator policy
-				for j in range(index + 1, fake_sample.shape[1]):
-					self.reset_hidden(batch_size)
-					# at the very start, there isnt really any input so just input zeros only
-					if j == 0:
-						input = torch.zeros(batch_size, 1, self.out_size)
-					else:
-						input = completed[:, :j].view(-1, j, self.out_size)
-					# choose action
-					probs = self(input)[:, -1]
-					action_probs = torch.distributions.Categorical(probs)
-					actions = action_probs.sample()
-					# save action
-					completed[:, j] = F.one_hot(actions, self.out_size) 
+				# choose action
+				probs = self(input)[:, -1]
+				actions = torch.multinomial(probs, num_samples=1)
+
+				# save action
+				completed[:, j] = F.one_hot(actions, self.out_size) 
+				
+
+			# get the estimated reward for that timestep from the discriminator HIER VLL TIMESTEP -1 KA
+			self.reward_memory[timestep] = discriminator(completed)
+
+
+
+		# batch_size = fake_sample.shape[0]
+		# loss = torch.zeros(fake_sample.shape[1])
+		# for index in range(fake_sample.shape[1]):
+		# 	seed = fake_sample[:, index]
+		# 	action_value_table = torch.zeros(batch_size, self.out_size)
+
+		# 	# simulate every action once
+		# 	for action in range(self.out_size):
+		# 		print(f"{index} - {action}")
+		# 		# initiate starting sequence
+		# 		completed = torch.zeros(fake_sample.shape)
+		# 		completed[:, :index] = seed
+
+		# 		# take the action
+		# 		completed[:, index, action] = 1
+
+		# 		# rollout the remaining part of the sequence, rolloutpolicy = generator policy
+		# 		for j in range(index + 1, fake_sample.shape[1]):
+		# 			self.reset_hidden(batch_size)
+		# 			# at the very start, there isnt really any input so just input zeros only
+		# 			if j == 0:
+		# 				input = torch.zeros(batch_size, 1, self.out_size)
+		# 			else:
+		# 				input = completed[:, :j].view(-1, j, self.out_size)
+		# 			# choose action
+		# 			probs = self(input)[:, -1]
+		# 			action_probs = torch.distributions.Categorical(probs)
+		# 			actions = action_probs.sample()
+		# 			# save action
+		# 			completed[:, j] = F.one_hot(actions, self.out_size) 
 					
 
-				# let the discriminator judge the complete sequence
-				score = discriminator(completed)
+		# 		# let the discriminator judge the complete sequence
+		# 		score = discriminator(completed)
 
-				# save that score to the actionvalue table
-				action_value_table[:, action] = score.detach()
-			# since there are no negative rewards, no power is needed in softmax
-			# ADD HERE
-			print(action_value_table.shape)
-			target = F.softmax(action_value_table, dim=1)
-			target = torch.true_divide
-			loss[index] = self.criterion(self.last_probs[:, index], target)
+		# 		# save that score to the actionvalue table
+		# 		action_value_table[:, action] = score.detach()
+		# 	# since there are no negative rewards, no power is needed in softmax
+		# 	# ADD HERE
+		# 	print(action_value_table.shape)
+		# 	target = F.softmax(action_value_table, dim=1)
+		# 	target = torch.true_divide
+		# 	loss[index] = self.criterion(self.last_probs[:, index], target)
 
-		# optimize the generator
-		total_loss = torch.mean(loss)
-		self.optimizer.zero_grad()
-		total_loss.backward()
-		self.optimizer.step()
+		# # optimize the generator
+		# total_loss = torch.mean(loss)
+		# self.optimizer.zero_grad()
+		# total_loss.backward()
+		# self.optimizer.step()
 
 	def loadModel(self, path=None):
 		if path is None:
