@@ -25,8 +25,8 @@ dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
 generator = Generator.generator(in_size=len(dataset.unique_tokens), out_size=len(dataset.unique_tokens))
 discriminator = Discriminator.discriminator(in_size=len(dataset.unique_tokens))
 
-# generator.loadModel()
-# discriminator.loadModel()
+# generator.loadModel(path=generator.chkpt_path)
+# discriminator.loadModel(path=discriminator.chkpt_path)
 
 # TRAINING
 generator.train()
@@ -64,6 +64,11 @@ finally:
 
 	with torch.no_grad():
 		pass
+
+	# smooth out the loss functions (avg of last 25 episodes)
+	generator.losses = [np.mean(generator.losses[max(0, t-25):(t+1)]) for t in range(len(generator.losses))]
+	discriminator.losses = [np.mean(discriminator.losses[max(0, t-25):(t+1)]) for t in range(len(discriminator.losses))]
+
 
 	# plot the graph of the different losses over time
 	fig, axs = plt.subplots(2, 2, num = "Training Data")

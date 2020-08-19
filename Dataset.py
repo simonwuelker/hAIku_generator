@@ -26,7 +26,6 @@ class Dataset(torch.utils.data.Dataset):
 
 	def encode(self, haiku):
 		"""encodes a single haiku"""
-
 		result = F.one_hot(torch.tensor([self.token_to_ix[char] for char in haiku]).long(), len(self.unique_tokens)).float()
 		return result
 
