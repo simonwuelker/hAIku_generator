@@ -71,13 +71,26 @@ finally:
 		for haiku in haikus:
 			print(haiku)
 
-	# plot the graph of the different losses over time
-	fig, ax = plt.subplots()
-	ax.plot(discriminator.scores_real, label="Real")
-	ax.plot(discriminator.scores_fake, label="Fake")
-	# ax.plot(generator.losses[2:], label="Generator Loss")
-	plt.ylabel("Loss")
-	plt.xlabel("Episodes")
-	ax.legend()
+	# smooth out the loss functions (avg of last 25 episodes)
+	generator.losses = [np.mean(generator.losses[max(0, t-25):(t+1)]) for t in range(len(generator.losses))]
+	discriminator.losses = [np.mean(discriminator.losses[max(0, t-25):(t+1)]) for t in range(len(discriminator.losses))]
 
+	# plot the graph of the different losses over time
+	fig, axs = plt.subplots(2, 2, num = "Training Data")
+
+	# Discriminator scores
+	axs[0, 0].title.set_text("Discriminator Scores")
+	axs[0, 0].plot(discriminator.scores_real, label = "Real")
+	axs[0, 0].plot(discriminator.scores_fake, label = "Fake")
+	axs[0, 0].legend()
+
+	# Generator Loss
+	axs[0, 1].title.set_text("Generator Loss")
+	axs[0, 1].plot(generator.losses, label = "Generator Loss")
+
+	# Discriminator Loss
+	axs[1, 1].title.set_text("Discriminator Loss")
+	axs[1, 1].plot(discriminator.losses, label = "Discriminator Loss")
+	fig.tight_layout()
+	plt.savefig("training_graphs/main")
 	plt.show()
