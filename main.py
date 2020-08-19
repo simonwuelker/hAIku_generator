@@ -6,7 +6,6 @@ import random
 
 import Generator
 import Discriminator
-import Tools
 from Dataset import Dataset
 
 import matplotlib.pyplot as plt
@@ -33,7 +32,7 @@ discriminator = Discriminator.discriminator(in_size=len(dataset.unique_tokens))
 generator.train()
 discriminator.train()
 try:
-	for epoch in trange(20):
+	for epoch in trange(1000):
 		for real_sample in dataloader:
 			fake_sample = generator.generate(batch_size=batch_size)
 			print(dataset.decode(fake_sample))
@@ -67,11 +66,21 @@ finally:
 		pass
 
 	# plot the graph of the different losses over time
-	plt.plot(discriminator.scores_real, label = "Real")
-	plt.plot(discriminator.scores_fake, label = "Fake")
-	plt.ylabel("Scores")
-	plt.xlabel("Training steps")
-	plt.legend()
-	plt.savefig("training_graphs/discriminator_scores_main")
-	# plt.show()
-	print(generator.losses)
+	fig, axs = plt.subplots(2, 2, num = "Training Data")
+
+	# Discriminator scores
+	axs[0, 0].title.set_text("Discriminator Scores")
+	axs[0, 0].plot(discriminator.scores_real, label = "Real")
+	axs[0, 0].plot(discriminator.scores_fake, label = "Fake")
+	axs[0, 0].legend()
+
+	# Generator Loss
+	axs[0, 1].title.set_text("Generator Loss")
+	axs[0, 1].plot(generator.losses, label = "Generator Loss")
+
+	# Discriminator Loss
+	axs[1, 1].title.set_text("Discriminator Loss")
+	axs[1, 1].plot(discriminator.losses, label = "Discriminator Loss")
+	fig.tight_layout()
+	plt.savefig("training_graphs/main")
+	plt.show()
