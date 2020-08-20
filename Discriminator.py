@@ -4,7 +4,7 @@ import torch.optim as optim
 
 
 class discriminator(nn.Module):
-	def __init__(self, in_size, hidden_size=400, out_size=1, n_layers=1, lr=0.01):
+	def __init__(self, in_size, hidden_size=400, out_size=1, n_layers=1, lr=0.001):
 		super(discriminator, self).__init__()
 
 		self.in_size = in_size
@@ -28,7 +28,7 @@ class discriminator(nn.Module):
 			nn.Sigmoid()
 		)
 		self.criterion = nn.BCELoss()
-		self.optimizer = optim.Adagrad(self.parameters(), lr)
+		self.optimizer = optim.Adam(self.parameters(), lr)
 
 		self.losses = []
 		self.scores_real = []
@@ -36,9 +36,8 @@ class discriminator(nn.Module):
 
 	def forward(self, input):
 		batch_size = input.shape[0]
-		self.reset_hidden(batch_size)
 
-		lstm_out, self.hidden = self.lstm(input, self.hidden)
+		lstm_out, _ = self.lstm(input)
 		output = self.network(lstm_out)
 		return output[:, -1]  # return last value from every batch
 		
@@ -56,7 +55,3 @@ class discriminator(nn.Module):
 		if path is None:
 			path = self.chkpt_path
 		torch.save(self.state_dict(), path)
-
-	def reset_hidden(self, batch_size):
-		self.hidden = (torch.rand(self.n_layers, batch_size, self.hidden_size), 
-			torch.rand(self.n_layers, batch_size, self.hidden_size))
