@@ -6,9 +6,9 @@ import numpy as np
 import random
 
 
-class CriticNetwork(nn.Module):
+class Critic(nn.Module):
 	def __init__(self, beta, n_actions, name, save_path="models/"):
-		super(CriticNetwork, self).__init__()
+		super(Critic, self).__init__()
 		self.fc1_dims = 400
 		self.fc2_dims = 300
 		self.n_layers = 2
@@ -48,9 +48,9 @@ class CriticNetwork(nn.Module):
 		self.hidden = (torch.rand(self.n_layers, batch_size, self.hidden_size), torch.rand(self.n_layers, batch_size, self.hidden_size))
 
 
-class ActorNetwork(nn.Module):
+class Actor(nn.Module):
 	def __init__(self, alpha, n_actions, name, save_path="models/"):
-		super(ActorNetwork, self).__init__()
+		super(Actor, self).__init__()
 		self.fc1_dims = 400
 		self.fc2_dims = 300
 		self.hidden_size = n_actions
@@ -90,10 +90,17 @@ class generator():
 		self.tau = 0.1
 
 		# define the core DDPG networks
-		self.actor = ActorNetwork(lr_actor, n_actions, "actor")
-		self.critic = CriticNetwork(lr_critic, n_actions, "critic")
-		self.target_actor = ActorNetwork(lr_actor, n_actions, "target_actor")
-		self.target_critic = CriticNetwork(lr_critic, n_actions, "target_critic")
+		self.actor = Actor(lr_actor, n_actions, "actor")
+		self.critic = Critic(lr_critic, n_actions, "critic")
+		self.target_actor = Actor(lr_actor, n_actions, "target_actor")
+		self.target_critic = Critic(lr_critic, n_actions, "target_critic")
+
+		# initialize target network parameters
+		for target_param, param in zip(self.target_actor.parameters(), self.actor.parameters()):
+			target_param.data.copy_(param.data)
+
+		for target_param, param in zip(self.target_critic.parameters(), self.critic.parameters()):
+			target_param.data.copy_(param.data)
 
 	def generate(self, dataset, batch_size):
 		haiku_length = random.randint(7, 10)
@@ -117,28 +124,13 @@ class generator():
 		if tau is None:
 			tau = self.tau
 
-		actor_params = self.actor.named_parameters()
-		critic_params = self.critic.named_parameters()
-		target_actor_params = self.target_actor.named_parameters()
-		target_critic_params = self.target_critic.named_parameters()
+		# update target networks 
+		for target_param, param in zip(actor_target.parameters(), actor.parameters()):
+			target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
 
-		actor_state_dict = dict(actor_params)
-		critic_state_dict = dict(critic_params)
-		target_actor_state_dict = dict(target_actor_params)
-		target_critic_state_dict = dict(target_critic_params)
-		print(actor_params)
-		print(actor_state_dict)
-
-		# Update Critic dict and load it
-		for name in critic_state_dict:
-			critic_state_dict[name] = tau * critic_state_dict[name].clone() + (1 - tau) * target_critic_state_dict[name].clone()
-		self.target_critic.load_state_dict(critic_state_dict)
-
-		# Update Actor dict and load it
-		for name in actor_state_dict:
-			actor_state_dict[name] = tau * actor_state_dict[name].clone() + (1 - tau) * target_actor_state_dict[name].clone()
-		self.target_actor.load_state_dict(actor_state_dict)
-
+		for target_param, param in zip(critic_target.parameters(), critic.parameters()):
+			target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
+			
 	def saveModels(self):
 		self.actor.save_checkpoint()
 		self.critic.save_checkpoint()
