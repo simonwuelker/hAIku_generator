@@ -35,8 +35,6 @@ class discriminator(nn.Module):
 		self.scores_fake = []
 
 	def forward(self, input):
-		batch_size = input.shape[0]
-
 		lstm_out, _ = self.lstm(input)
 		output = self.network(lstm_out)
 		return output[:, -1]  # return last value from every batch
