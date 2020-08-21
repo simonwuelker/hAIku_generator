@@ -130,7 +130,7 @@ class generator():
 
 		for target_param, param in zip(critic_target.parameters(), critic.parameters()):
 			target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
-			
+
 	def saveModels(self):
 		self.actor.save_checkpoint()
 		self.critic.save_checkpoint()
@@ -145,8 +145,15 @@ class generator():
 
 	def train(self):
 		# maybe set state for actor/critic network as well
-		self.training = True
+		self.actor.train()
+		self.critic.train()
+		self.target_actor.train()
+		self.target_critic.train()
 
 	def eval(self):
-		self.training = False
+		self.actor.eval()
+		self.critic.eval()
+		self.target_actor.eval()
+		self.target_critic.eval()
+
 
