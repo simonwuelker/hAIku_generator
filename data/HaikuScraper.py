@@ -2,12 +2,12 @@
 import tweepy
 import Credentials
 
-auth = tweepy.OAuthHandler(Credentials.CONSUMER_TOKEN, CREDENTIALS.CONSUMER_SECRET)
+auth = tweepy.OAuthHandler(Credentials.CONSUMER_TOKEN, Credentials.CONSUMER_SECRET)
 api = tweepy.API(auth)
 
 haikus = []
-for tweet in tweepy.Cursor(api.search, q='#twaiku', rpp=100).items():
-    print(tweet)
-    haikus.append(tweet)
-with open("data/twitter_haikus.txt", "w") as infile:
+for tweet in tweepy.Cursor(api.search, q='#twaiku').items():
+	haikus.append(tweet.text)
+
+with open("twitter_haikus.txt", "w", errors="ignore") as infile:
 	infile.writelines(haikus)

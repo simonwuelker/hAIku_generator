@@ -26,13 +26,13 @@ generator = Generator.generator(in_size=len(dataset.unique_tokens), out_size=len
 discriminator = Discriminator.discriminator(in_size=len(dataset.unique_tokens))
 
 # generator.loadModel(path=generator.chkpt_path)
-# discriminator.loadModel(path=discriminator.chkpt_path)
+# discriminator.loadModel(path=discriminator.pretrained_path)
 
 # TRAINING
 generator.train()
 discriminator.train()
 try:
-	for epoch in trange(250):
+	for epoch in trange(1000):
 		for real_sample in dataloader:
 			fake_sample = generator.generate(batch_size=batch_size)
 
