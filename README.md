@@ -15,16 +15,16 @@ If you have acquired enough Haikus, place them in the data folder and run the [p
  file. After thats finished, run the [main.py](https://github.com/Wuelle/BW-KI-2020/blob/Embeddings/main.py) file which will store
  the final generator model under [models/Generator.pt](https://github.com/Wuelle/BW-KI-2020/blob/Embeddings/models/Generator.pt)
 
-## Examples
-These are some handpicked samples from the generator.
->
->
-
 ## Future Goals
 * Scrape Haikus from Twitter
 * Improve charlevel branch
 * Create contributing guidelines
 * Add Examples
+
+## Training Example
+The following image contains the training data when the real samples are all "aa". Though this is a drastic oversimplification of the original problem which almost definetely leads to the models simply overfitting on the training data, i dont have the time to train a more complex pair of models right now, though i do plan on doing so eventually.
+![Training Data](https://github.com/Wuelle/BW-KI-2020/blob/charlevel/training_graphs/main.png)<br>
+As you can clearly see in the image, the discriminator becomes unable to distinguish fake samples from real samples after around 400 episodes.
 
 ## Credits
 Though i plan to use my own data eventually, right now i am using a processed version of the dataset from
