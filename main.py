@@ -5,7 +5,6 @@ import numpy as np
 
 import Generator
 import Discriminator
-import Tools
 from Dataset import Dataset
 
 import matplotlib.pyplot as plt
