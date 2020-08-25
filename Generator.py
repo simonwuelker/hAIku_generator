@@ -125,10 +125,10 @@ class generator():
 			tau = self.tau
 
 		# update target networks 
-		for target_param, param in zip(actor_target.parameters(), actor.parameters()):
+		for target_param, param in zip(self.actor_target.parameters(), self.actor.parameters()):
 			target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
 
-		for target_param, param in zip(critic_target.parameters(), critic.parameters()):
+		for target_param, param in zip(self.critic_target.parameters(), self.critic.parameters()):
 			target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
 
 	def saveModels(self):
