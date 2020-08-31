@@ -23,6 +23,8 @@ dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
 # Init models
 generator = Generator.generator(lr_actor=0.01, lr_critic=0.01, n_actions=dataset.embedding_dim)
 discriminator = Discriminator.discriminator(in_size=dataset.embedding_dim)
+print(dataset.decode(generator.generate(dataset, batch_size=2)))
+assert False
 
 # load models
 # generator.loadModels()

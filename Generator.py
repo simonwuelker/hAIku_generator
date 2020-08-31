@@ -16,9 +16,10 @@ class OUActionNoise:
 		self.x_prev = np.zeros_like(self.mu)
 
 	def __call__(self):
+		# using numpy because torch cant take the sqrt of a float...
 		x = self.x_prev + self.theta * (self.mu - self.x_prev) * self.dt + self.sigma * np.sqrt(self.dt) * np.random.normal(size=self.mu.shape)
 		self.x_prev = x
-		return x
+		return torch.from_numpy(x)
 
 class Critic(nn.Module):
 	def __init__(self, beta, n_actions, name, save_path="models/"):
@@ -29,23 +30,19 @@ class Critic(nn.Module):
 		self.n_actions = n_actions
 		self.checkpoint_file = save_path + name
 
-		self.fc1 = nn.Linear(self.n_actions, self.fc1_dims)
-		self.bn1 = nn.LayerNorm(self.fc1_dims)
-		self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
-		self.bn2 = nn.LayerNorm(self.fc2_dims)
+		self.state_value = nn.Sequential(
+			nn.Linear(self.n_actions, self.fc1_dims),
+			nn.LayerNorm(self.fc1_dims),
+			nn.Linear(self.fc1_dims, self.fc2_dims),
+			nn.LayerNorm(self.fc2_dims)
+			)
 		self.action_value = nn.Linear(self.n_actions, self.fc2_dims)
 		self.q = nn.Linear(self.fc2_dims, 1)
 
 		self.optimizer = optim.Adam(self.parameters(), lr=beta)
 
 	def forward(self, state, action):
-		input = torch.cat((state, action))
-		state_value = self.fc1(state)
-		state_value = self.bn1(state_value)
-		state_value = F.relu(state_value)
-		state_value = self.fc2(state_value)
-		state_value = self.bn2(state_value)
-
+		state_value = self.state_value(state)
 		action_value = F.relu(self.action_value(action))
 		state_action_value = F.relu(torch.add(state_value, action_value))
 		state_action_value = self.q(state_action_value)
@@ -57,9 +54,6 @@ class Critic(nn.Module):
 
 	def load_checkpoint(self):
 		self.load_state_dict(torch.load(self.checkpoint_file))
-
-	def reset_hidden(self, batch_size):
-		self.hidden = (torch.rand(self.n_layers, batch_size, self.hidden_size), torch.rand(self.n_layers, batch_size, self.hidden_size))
 
 
 class Actor(nn.Module):
@@ -79,7 +73,7 @@ class Actor(nn.Module):
 
 
 	def forward(self, state):
-		lstm_out, self.hidden = self.lstm(state, self.hidden)
+		lstm_out, _ = self.lstm(state)
 		# take the last value from every batch
 		lstm_last = lstm_out[:, -1]
 		actions = self.mu(lstm_last)
@@ -91,9 +85,6 @@ class Actor(nn.Module):
 	def load_checkpoint(self):
 		self.load_state_dict(torch.load(self.checkpoint_file))
 
-	def reset_hidden(self, batch_size):
-		self.hidden = (torch.rand(self.n_layers, batch_size, self.hidden_size), torch.rand(self.n_layers, batch_size, self.hidden_size))
-
 
 class generator():
 	def __init__(self, lr_actor, lr_critic, n_actions):
@@ -102,6 +93,7 @@ class generator():
 		self.losses = []
 		self.training = True # Noise is only applied during training
 		self.tau = 0.1
+		self.noise = OUActionNoise(mu=np.zeros(n_actions))
 
 		# define the core DDPG networks
 		self.actor = Actor(lr_actor, n_actions, "actor")
@@ -116,6 +108,9 @@ class generator():
 		for target_param, param in zip(self.target_critic.parameters(), self.critic.parameters()):
 			target_param.data.copy_(param.data)
 
+	def choose_action(self, input):
+		return self.actor(input) + self.noise()
+
 	def generate(self, dataset, batch_size):
 		haiku_length = random.randint(7, 10)
 		result = torch.zeros(batch_size, haiku_length, self.n_actions)
@@ -127,14 +122,18 @@ class generator():
 
 		# generate the rest of the haiku
 		for index in range(1, haiku_length):
-			self.actor.reset_hidden(batch_size=batch_size)
-			input = result[:, :index]
-			output = self.actor(input)
-			result[:, index] = output
+			result[:, index] = self.choose_action(result[:, :index])
 
 		return result
 
-	def update_network_parameters(self, tau=None):
+	def learn(self):
+		self.refresh_target()
+
+	def refresh_target(self, tau=None):
+		"""
+		partially copies over the main network parameters
+		to the target networks.
+		"""
 		if tau is None:
 			tau = self.tau
 
@@ -158,7 +157,6 @@ class generator():
 		self.target_critic.load_checkpoint()
 
 	def train(self):
-		# maybe set state for actor/critic network as well
 		self.actor.train()
 		self.critic.train()
 		self.target_actor.train()
