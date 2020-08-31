@@ -3,169 +3,152 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import numpy as np
-import random
 
+class generator(nn.Module):
+	def __init__(self, embedding_dim, hidden_size=400, n_layers=2, lr=0.001):
+		super(generator, self).__init__()
 
-class OUActionNoise:
-	def __init__(self, mu, sigma=0.15, theta=0.2, dt=0.01, x0=None):
-		self.theta = theta
-		self.mu = mu
-		self.sigma = sigma
-		self.dt = dt
-		self.x0 = x0
-		self.x_prev = np.zeros_like(self.mu)
+		self.embedding_dim = embedding_dim
+		self.out_size = embedding_dim
+		self.hidden_size = hidden_size
+		self.n_layers = n_layers
+		self.lr = lr
+		self.losses = []
+		self.discount = 0.9
+		self.pretrained_path = "models/Generator_pretrained.pt"
+		self.chkpt_path = "models/Generator.pt"
 
-	def __call__(self):
-		# using numpy because torch cant take the sqrt of a float...
-		x = self.x_prev + self.theta * (self.mu - self.x_prev) * self.dt + self.sigma * np.sqrt(self.dt) * np.random.normal(size=self.mu.shape)
-		self.x_prev = x
-		return torch.from_numpy(x)
+		self.lstm = nn.LSTM(self.embedding_dim, self.hidden_size, self.n_layers, batch_first=True)
+		self.mean = nn.Sequential(
+			nn.Linear(self.hidden_size, 400),
+			nn.ReLU(),
+			nn.Linear(400, 300),
+			nn.ReLU(),
+			nn.Linear(300, 128),
+			nn.ReLU(),
+			nn.Linear(128, embedding_dim),
+			nn.Softmax(dim=1)
+		)
+		self.std = nn.Sequential(
+			nn.Linear(self.hidden_size, 400),
+			nn.ReLU(),
+			nn.Linear(400, 300),
+			nn.ReLU(),
+			nn.Linear(300, 128),
+			nn.ReLU(),
+			nn.Linear(128, embedding_dim),
+			nn.Softmax(dim=1)
+		)
 
-class Critic(nn.Module):
-	def __init__(self, beta, n_actions, name, save_path="models/"):
-		super(Critic, self).__init__()
-		self.fc1_dims = 400
-		self.fc2_dims = 300
-		self.n_layers = 2
-		self.n_actions = n_actions
-		self.checkpoint_file = save_path + name
+		self.criterion = nn.CrossEntropyLoss()
+		self.optimizer = optim.Adam(self.parameters(), self.lr)
 
-		self.state_value = nn.Sequential(
-			nn.Linear(self.n_actions, self.fc1_dims),
-			nn.LayerNorm(self.fc1_dims),
-			nn.Linear(self.fc1_dims, self.fc2_dims),
-			nn.LayerNorm(self.fc2_dims)
-			)
-		self.action_value = nn.Linear(self.n_actions, self.fc2_dims)
-		self.q = nn.Linear(self.fc2_dims, 1)
+	def forward(self, input):
+		# take the last values from the lstm-forward pass
+		lstm_out, _ = self.lstm(input)
+		lstm_out = lstm_out[:, -1].view(-1, self.hidden_size)
 
-		self.optimizer = optim.Adam(self.parameters(), lr=beta)
+		# get the mean and standard deviation
+		mean = self.mean(lstm_out)
+		std = torch.exp(self.std(lstm_out))
 
-	def forward(self, state, action):
-		state_value = self.state_value(state)
-		action_value = F.relu(self.action_value(action))
-		state_action_value = F.relu(torch.add(state_value, action_value))
-		state_action_value = self.q(state_action_value)
-
-		return state_action_value
-
-	def save_checkpoint(self):
-		torch.save(self.state_dict(), self.checkpoint_file)
-
-	def load_checkpoint(self):
-		self.load_state_dict(torch.load(self.checkpoint_file))
-
-
-class Actor(nn.Module):
-	def __init__(self, alpha, n_actions, name, save_path="models/"):
-		super(Actor, self).__init__()
-		self.fc1_dims = 400
-		self.fc2_dims = 300
-		self.hidden_size = n_actions
-		self.n_layers = 2
-		self.n_actions = n_actions
-		self.checkpoint_file = save_path + name
-
-		self.lstm = nn.LSTM(input_size=n_actions, hidden_size=n_actions, num_layers=2, batch_first=True)
-		self.mu = nn.Linear(self.hidden_size, self.n_actions)
-
-		self.optimizer = optim.Adam(self.parameters(), lr=alpha)
-
-
-	def forward(self, state):
-		lstm_out, _ = self.lstm(state)
-		# take the last value from every batch
-		lstm_last = lstm_out[:, -1]
-		actions = self.mu(lstm_last)
+		# sample the action based on the output from the networks
+		distributions = torch.distributions.Normal(mean, std)
+		actions = distributions.sample()
+		print("Writing to ", input.shape[1]-1)
+		self.action_memory[:, input.shape[1]-1] = distributions.log_prob(actions)
 		return actions
 
-	def save_checkpoint(self):
-		torch.save(self.state_dict(), self.checkpoint_file)
+	def generate(self, batch_size, seed=None):
+		"""returns one generated sequence and optimizes the generator"""
 
-	def load_checkpoint(self):
-		self.load_state_dict(torch.load(self.checkpoint_file))
+		haiku_length = np.random.randint(5, 8)  # length boundaries are arbitrary
+		output = torch.zeros(batch_size, haiku_length + 1, self.out_size) # first element from the output is the inital seed
+		self.action_memory = torch.zeros(batch_size, haiku_length, self.embedding_dim)
 
+		# generate sequence starting from a given seed
+		for i in range(1, haiku_length + 1):
+			# forward pass
+			input = output[:, :i].clone()  # inplace operation, clone is necessary
+			output[:, i] = self(input).view(batch_size, self.out_size)		
 
-class generator():
-	def __init__(self, lr_actor, lr_critic, n_actions):
-		super(generator, self).__init__()
-		self.n_actions = n_actions
-		self.losses = []
-		self.training = True # Noise is only applied during training
-		self.tau = 0.1
-		self.noise = OUActionNoise(mu=np.zeros(n_actions))
+		#remove the seed again
+		return output[:, 1:]
 
-		# define the core DDPG networks
-		self.actor = Actor(lr_actor, n_actions, "actor")
-		self.critic = Critic(lr_critic, n_actions, "critic")
-		self.target_actor = Actor(lr_actor, n_actions, "target_actor")
-		self.target_critic = Critic(lr_critic, n_actions, "target_critic")
+	def learn(self, fake_sample, discriminator):
+		# This is just plain REINFORCE
+		batch_size = fake_sample.shape[0]
+		seq_length = fake_sample.shape[1]
 
-		# initialize target network parameters
-		for target_param, param in zip(self.target_actor.parameters(), self.actor.parameters()):
-			target_param.data.copy_(param.data)
+		# fill the reward memory using Monte Carlo
+		self.reward_memory = torch.zeros_like(self.action_memory)
+		for seq_ix in range(fake_sample.shape[1]): # the generator didnt take the first action, it was the seed
 
-		for target_param, param in zip(self.target_critic.parameters(), self.critic.parameters()):
-			target_param.data.copy_(param.data)
+			#the amount of rollouts performed is proportional to their length
+			num_rollouts = fake_sample.shape[1] - seq_ix
+			qualities = torch.zeros(batch_size, num_rollouts)
 
-	def choose_action(self, input):
-		return self.actor(input) + self.noise()
+			for rollout_ix in range(num_rollouts):
+				# initiate starting sequence
+				completed = torch.zeros_like(fake_sample)
+				completed[:, :seq_ix] = fake_sample[:, :seq_ix]
 
-	def generate(self, dataset, batch_size):
-		haiku_length = random.randint(7, 10)
-		result = torch.zeros(batch_size, haiku_length, self.n_actions)
+				# rollout the remaining part of the sequence, rollout policy = generator policy
+				for j in range(seq_ix, fake_sample.shape[1]):
+					if j == 0:
+						input = torch.zeros(batch_size, 1, self.out_size)
+					else:
+						input = completed[:, :j].view(batch_size, j, self.out_size)
 
-		# initiate seed
-		seed = random.choices(list(dataset.model.wv.vocab.keys()), k=batch_size)
-		for index, word in enumerate(seed):
-			result[index, 0] = torch.tensor(np.copy(dataset.model[word]))
+					# choose action
+					probs = self(input)[:, -1].view(batch_size, self.out_size)
+					actions = torch.multinomial(probs, num_samples=1)
 
-		# generate the rest of the haiku
-		for index in range(1, haiku_length):
-			result[:, index] = self.choose_action(result[:, :index])
+					# save action
+					completed[:, j] = F.one_hot(actions, self.out_size) 
 
-		return result
+				# get the estimated reward for that rollout from the discriminator
+				qualities[:, rollout_ix] = discriminator(completed).detach()
 
-	def learn(self):
-		self.refresh_target()
+			self.reward_memory[:, seq_ix] = torch.mean(qualities, dim=1)
 
-	def refresh_target(self, tau=None):
-		"""
-		partially copies over the main network parameters
-		to the target networks.
-		"""
-		if tau is None:
-			tau = self.tau
+		# normalize the rewards
+		std, mean = torch.std_mean(self.reward_memory, dim=1, unbiased=False)  # avoid bessel
+		std[std == 0] = 1  # remove zeros from std
+		self.reward_memory = (self.reward_memory - mean.view(-1, 1)) / std.view(-1, 1)
 
-		# update target networks 
-		for target_param, param in zip(self.actor_target.parameters(), self.actor.parameters()):
-			target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
+		# calculate the discounted future rewards for every action
+		discounted_rewards = torch.zeros(batch_size, seq_length)
+		for batch_ix in range(batch_size):
+			for seq_ix in range(seq_length):
+				discounted_reward = 0
+				for t in range(seq_ix, seq_length):
+					discounted_reward += (self.discount**(t-seq_ix)) * self.reward_memory[batch_ix, t]
+				discounted_rewards[batch_ix, seq_ix] = discounted_reward
 
-		for target_param, param in zip(self.critic_target.parameters(), self.critic.parameters()):
-			target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
+		# calculate the loss using the REINFORCE Algorithm
+		total_loss = 0
+		for batch_ix in range(batch_size):
+			for seq_ix in range(seq_length):
+				total_loss += -1 * discounted_rewards[batch_ix, seq_ix] * self.action_memory[batch_ix, seq_ix]
 
-	def saveModels(self):
-		self.actor.save_checkpoint()
-		self.critic.save_checkpoint()
-		self.target_actor.save_checkpoint()
-		self.target_critic.save_checkpoint()
+		self.losses.append(total_loss.item())
+		if total_loss.item() < 0:
+			print("--")
+			print(discounted_rewards, self.reward_memory)
 
-	def loadModels(self):
-		self.actor.load_checkpoint()
-		self.critic.load_checkpoint()
-		self.target_actor.load_checkpoint()
-		self.target_critic.load_checkpoint()
+		# optimize the agent
+		self.optimizer.zero_grad()
+		total_loss.backward()
+		self.optimizer.step()
+		return total_loss, self.action_memory, discounted_rewards, completed
 
-	def train(self):
-		self.actor.train()
-		self.critic.train()
-		self.target_actor.train()
-		self.target_critic.train()
+	def loadModel(self, path=None):
+		if path is None:
+			path = self.pretrained_path
+		self.load_state_dict(torch.load(path))
 
-	def eval(self):
-		self.actor.eval()
-		self.critic.eval()
-		self.target_actor.eval()
-		self.target_critic.eval()
-
-
+	def saveModel(self, path=None):
+		if path is None:
+			path = self.chkpt_path
+		torch.save(self.state_dict(), path)

@@ -21,13 +21,11 @@ dataset = Dataset(path_data="data/small_dataset.txt")
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
 
 # Init models
-generator = Generator.generator(lr_actor=0.01, lr_critic=0.01, n_actions=dataset.embedding_dim)
+generator = Generator.generator(dataset.embedding_dim)
 discriminator = Discriminator.discriminator(in_size=dataset.embedding_dim)
-print(dataset.decode(generator.generate(dataset, batch_size=2)))
-assert False
 
 # load models
-# generator.loadModels()
+# generator.loadModel()
 discriminator.loadModel()
 
 # TRAINING
@@ -45,7 +43,8 @@ try:
 			score_real = discriminator(real_sample)
 			score_fake = discriminator(fake_sample.detach())
 
-			# Save scores for evaluation
+			# Save scores for evaluation/training
+			generator.reward_memory.append(score_real)
 			discriminator.scores_real.append(score_real.item())
 			discriminator.scores_fake.append(score_fake.item())
 
