@@ -20,7 +20,7 @@ If you have acquired enough Haikus, place them in the data folder and run the [p
 
 ## Examples
 These are some handpicked samples from the generator.
->
+>scattered rare conversant entails snatchers
 >
 
 ## Future Goals
