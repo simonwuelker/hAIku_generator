@@ -32,7 +32,8 @@ class discriminator(nn.Module):
 		self.losses = []
 		self.scores_real = []
 		self.scores_fake = []
-		self.checkpoint_file = "models/Discriminator_pretrained.pt"
+		self.pretrained_path = "models/Discriminator_pretrained.pt"
+		self.save_path = "models/Discriminator.pt"
 
 	def forward(self, input):
 		batch_size = input.shape[0]
@@ -48,11 +49,15 @@ class discriminator(nn.Module):
 		loss_d.backward()
 		self.optimizer.step()
 
-	def loadModel(self):
-		self.load_state_dict(torch.load(self.checkpoint_file))
+	def loadModel(self, path=None):
+		if path is None:
+			path = self.pretrained_path
+		self.load_state_dict(torch.load(path))
 
-	def saveModel(self):
-		torch.save(self.state_dict(), self.checkpoint_file)
+	def saveModel(self, path=None):
+		if path is None:
+			path = self.save_path
+		torch.save(self.state_dict(), path)
 
 
 	
