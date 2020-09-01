@@ -35,7 +35,7 @@ discriminator.train()
 try:
 	for epoch in trange(10):
 		for real_sample in dataloader:
-			fake_sample = generator.generate(dataset, batch_size)
+			fake_sample = generator.generate(batch_size)
 			print(dataset.decode(real_sample))
 			print(dataset.decode(fake_sample))
 
@@ -43,8 +43,7 @@ try:
 			score_real = discriminator(real_sample)
 			score_fake = discriminator(fake_sample.detach())
 
-			# Save scores for evaluation/training
-			generator.reward_memory.append(score_real)
+			# Save scores for evaluation
 			discriminator.scores_real.append(score_real.item())
 			discriminator.scores_fake.append(score_fake.item())
 
@@ -53,13 +52,12 @@ try:
 			discriminator.losses.append(loss_d.item())
 
 			# optimize discriminator
-			discriminator.optimizer.zero_grad()
-			loss_d.backward()
-			discriminator.optimizer.step()
+			discriminator.learn(loss_d)
+			generator.learn(fake_sample, discriminator)
 
 finally:
 	# Models are always saved, even after a KeyboardInterrupt
-	generator.saveModels()
+	generator.saveModel()
 	discriminator.saveModel()
 
 	# TESTING
@@ -67,7 +65,7 @@ finally:
 	generator.eval()
 
 	with torch.no_grad():
-		haikus = dataset.decode(generator.generate(dataset, 10))
+		haikus = dataset.decode(generator.generate(10))
 		for haiku in haikus:
 			print(haiku)
 

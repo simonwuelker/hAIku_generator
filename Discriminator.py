@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import warnings
 
 
 class discriminator(nn.Module):
@@ -16,12 +15,16 @@ class discriminator(nn.Module):
 
 		# Architecture
 		self.lstm = nn.LSTM(self.in_size, self.hidden_size, self.n_layers, batch_first=batch_first, dropout=dropout)
-		self.lin1 = nn.Linear(self.hidden_size, 400)
-		self.lin2 = nn.Linear(400, 300)
-		self.lin3 = nn.Linear(300, 100)
-		self.lin4 = nn.Linear(100, self.out_size)
-		self.dropout = nn.Dropout(0.3)
-		self.sigmoid = nn.Sigmoid()
+		self.network = nn.Sequential(
+			nn.Linear(self.hidden_size, 400),
+			nn.Dropout(0.3),
+			nn.Linear(400, 300),
+			nn.Dropout(0.3),
+			nn.Linear(300, 100),
+			nn.Dropout(0.3),
+			nn.Linear(100, self.out_size),
+			nn.Sigmoid()
+			)
 
 		self.criterion = nn.BCELoss()
 		self.optimizer = optim.Adagrad(self.parameters(), self.lr)
@@ -33,28 +36,23 @@ class discriminator(nn.Module):
 
 	def forward(self, input):
 		batch_size = input.shape[0]
-		self.zero_grad()
-		self.reset_hidden(batch_size)
 
-		lstm_out, self.hidden = self.lstm(input, self.hidden)
+		lstm_out, _ = self.lstm(input)
 		lstm_out = lstm_out.view(-1, self.hidden_size)
-		out1 = self.dropout(self.lin1(lstm_out))
-		out2 = self.dropout(self.lin2(out1))
-		out3 = self.dropout(self.lin3(out2))
-		out = self.sigmoid(self.lin4(out3))
+		scores = self.network(lstm_out)
 
-		return out.view(batch_size, -1)[:, -1]  # return last value from every batch
+		return scores.view(batch_size, -1)[:, -1]  # return last value from every batch
+
+	def learn(self, loss_d):
+		self.optimizer.zero_grad()
+		loss_d.backward()
+		self.optimizer.step()
 
 	def loadModel(self):
-		try:
-			self.load_state_dict(torch.load(self.checkpoint_file))
-		except:
-			warnings.warn("Failed to load Discriminator Model")
+		self.load_state_dict(torch.load(self.checkpoint_file))
 
 	def saveModel(self):
 		torch.save(self.state_dict(), self.checkpoint_file)
 
-	def reset_hidden(self, batch_size):
-		self.hidden = (torch.rand(self.n_layers, batch_size, self.hidden_size), torch.rand(self.n_layers, batch_size, self.hidden_size))
 
 	
