@@ -33,11 +33,9 @@ generator.train()
 discriminator.train()
 
 try:
-	for epoch in trange(10):
+	for epoch in trange(1000):
 		for real_sample in dataloader:
 			fake_sample = generator.generate(batch_size)
-			print(dataset.decode(real_sample))
-			print(dataset.decode(fake_sample))
 
 			# take outputs from discriminator
 			score_real = discriminator(real_sample)

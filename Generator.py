@@ -55,8 +55,10 @@ class generator(nn.Module):
 		# sample the action based on the output from the networks
 		distributions = torch.distributions.Normal(mean, std)
 		actions = distributions.sample()
-		print("Writing to ", input.shape[1]-1)
-		self.action_memory[:, input.shape[1]-1] = distributions.log_prob(actions)
+
+		# initialize the memories needed for REINFORCE
+		self.action_memory[:, input.shape[1]-1] = torch.mean(distributions.log_prob(actions))
+		self.reward_memory = torch.empty_like(self.action_memory)
 		return actions
 
 	def generate(self, batch_size, seed=None):
@@ -64,7 +66,7 @@ class generator(nn.Module):
 
 		haiku_length = np.random.randint(5, 8)  # length boundaries are arbitrary
 		output = torch.zeros(batch_size, haiku_length + 1, self.out_size) # first element from the output is the inital seed
-		self.action_memory = torch.zeros(batch_size, haiku_length, self.embedding_dim)
+		self.action_memory = torch.zeros(batch_size, haiku_length)
 
 		# generate sequence starting from a given seed
 		for i in range(1, haiku_length + 1):
@@ -89,26 +91,21 @@ class generator(nn.Module):
 			qualities = torch.zeros(batch_size, num_rollouts)
 
 			for rollout_ix in range(num_rollouts):
-				# initiate starting sequence
-				completed = torch.zeros_like(fake_sample)
-				completed[:, :seq_ix] = fake_sample[:, :seq_ix]
+				# initiate starting sequence + seed
+				completed = torch.zeros(batch_size, seq_length + 1, self.out_size)
+				completed[:, 1:seq_ix + 1] = fake_sample[:, :seq_ix]
+
 
 				# rollout the remaining part of the sequence, rollout policy = generator policy
-				for j in range(seq_ix, fake_sample.shape[1]):
-					if j == 0:
-						input = torch.zeros(batch_size, 1, self.out_size)
-					else:
-						input = completed[:, :j].view(batch_size, j, self.out_size)
+				for j in range(seq_ix + 1, fake_sample.shape[1] + 1):
+					input = completed[:, :j].clone().view(batch_size, j, self.out_size)
 
 					# choose action
-					probs = self(input)[:, -1].view(batch_size, self.out_size)
-					actions = torch.multinomial(probs, num_samples=1)
-
-					# save action
-					completed[:, j] = F.one_hot(actions, self.out_size) 
+					action = self(input)
+					completed[:, j] = action
 
 				# get the estimated reward for that rollout from the discriminator
-				qualities[:, rollout_ix] = discriminator(completed).detach()
+				qualities[:, rollout_ix] = discriminator(completed[:, 1:]).detach()
 
 			self.reward_memory[:, seq_ix] = torch.mean(qualities, dim=1)
 
@@ -132,15 +129,15 @@ class generator(nn.Module):
 			for seq_ix in range(seq_length):
 				total_loss += -1 * discounted_rewards[batch_ix, seq_ix] * self.action_memory[batch_ix, seq_ix]
 
-		self.losses.append(total_loss.item())
-		if total_loss.item() < 0:
-			print("--")
-			print(discounted_rewards, self.reward_memory)
-
 		# optimize the agent
 		self.optimizer.zero_grad()
 		total_loss.backward()
 		self.optimizer.step()
+
+		self.losses.append(total_loss.item())
+		if total_loss.item() < 0:
+			print("--")
+			print(discounted_rewards, self.reward_memory)
 		return total_loss, self.action_memory, discounted_rewards, completed
 
 	def loadModel(self, path=None):
