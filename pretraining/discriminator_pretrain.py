@@ -17,8 +17,11 @@ batch_size = 1
 torch.manual_seed(1)
 np.random.seed(1)
 
-dataset = Dataset(path_data="../data/small_dataset.txt", path_model="../models/word2vec.model")
+dataset = Dataset(path_data="../data/small_dataset.txt", path_model="../models/word2vec.model", length = 3, offset = 3)
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
+for sample in dataloader:
+	print(dataset.decode(sample))
+assert False
 
 # Init/Load model
 discriminator = Discriminator.discriminator(in_size=len(dataset.unique_tokens))
