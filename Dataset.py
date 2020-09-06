@@ -8,14 +8,11 @@ class Dataset(torch.utils.data.Dataset):
 		with open(path_data, "r", encoding="utf8", errors="ignore") as infile:
 			self.data = infile.read().splitlines()
 
-		self.model = gensim.models.KeyedVectors.load("models/word2vec.model")
+		self.model = gensim.models.KeyedVectors.load(path_model)
 		self.embedding_dim = self.model.vector_size  # default is 100
 
 		# length can be clamped via argument to use only parts of the dataset for training/testing
-		if length is None:
-			self.length = len(self.data)
-		else:
-			self.length = length
+		self.length = len(self.data) if length is None else length
 		self.offset = offset  # offset maps all indices to training/testing indices
 
 	def __len__(self):
@@ -48,3 +45,22 @@ class Dataset(torch.utils.data.Dataset):
 			result.append(batchstring)
 
 		return result
+
+# MOVE TO NOTEBOOK LATER, CAP AT 14
+
+# import torch.utils.data  # cant inherit from torch.utils.data.Dataset otherwise
+# from collections import Counter
+# import matplotlib.pyplot as plt
+# d = Dataset("data/dataset_clean.txt")
+# lengths = [len(sample.split()) for sample in d.data]
+# counter = Counter(lengths)
+# occurences = [counter[key] for key in counter.keys()]
+# print(occurences)
+# plt.bar(x=list(counter.keys()), height=occurences)
+# plt.show()
+
+# dataloader_train = torch.utils.data.DataLoader(d, batch_size=2)
+# for element in dataloader_train:
+# 	print(element, type(element), element.shape)
+
+
