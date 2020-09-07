@@ -2,33 +2,33 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.nn.utils.rnn import pad_packed_sequence
 
 
 class discriminator(nn.Module):
-	def __init__(self, in_size, hidden_size=600, out_size=1, n_layers=2, lr=0.01, batch_first=True, dropout=0.1):
+	def __init__(self, in_size, hidden_size=600, out_size=1, n_layers=2, dropout=0.1):
 		super(discriminator, self).__init__()
 
 		self.in_size = in_size
 		self.out_size = out_size
-		self.lr = lr
 		self.hidden_size = hidden_size
 		self.n_layers = n_layers
 
 		# Architecture
-		self.lstm = nn.LSTM(self.in_size, self.hidden_size, self.n_layers, batch_first=batch_first, dropout=dropout)
+		self.lstm = nn.LSTM(self.in_size, self.hidden_size, self.n_layers, batch_first=True, dropout=dropout, bidirectional=True)
 		self.network = nn.Sequential(
-			nn.Linear(self.hidden_size, 800),
-			nn.Dropout(0.1),
+			nn.Linear(self.hidden_size * 2, 800),
+			nn.Dropout(dropout),
 			nn.Linear(800, 600),
-			nn.Dropout(0.1),
+			nn.Dropout(dropout),
 			nn.Linear(600, 100),
-			nn.Dropout(0.1),
+			nn.Dropout(dropout),
 			nn.Linear(100, self.out_size),
 			nn.Sigmoid()
 			)
 
 		self.criterion = nn.BCELoss()
-		self.optimizer = optim.Adagrad(self.parameters(), self.lr)
+		self.optimizer = optim.Adagrad(self.parameters())
 
 		self.losses = []
 		self.scores_real = []
@@ -36,14 +36,16 @@ class discriminator(nn.Module):
 		self.pretrained_path = "models/Discriminator_pretrained.pt"
 		self.save_path = "models/Discriminator.pt"
 
-	def forward(self, input):
-		batch_size = input.shape[0]
+	def forward(self, packed_input):
+		packed_output, _ = self.lstm(packed_input)
+		
+		#unpack the output
+		lstm_out, _ = pad_packed_sequence(packed_output, batch_first=True)
 
-		lstm_out, _ = self.lstm(input)
-		lstm_out = lstm_out.view(-1, self.hidden_size)
-		scores = self.network(lstm_out)
+		last_hidden = lstm_out[:, -1]  # take the last hidden states from every batch
+		scores = self.network(last_hidden)
 
-		return scores.view(batch_size, -1)[:, -1]  # return last value from every batch
+		return scores
 
 	def learn(self, loss_d):
 		self.optimizer.zero_grad()

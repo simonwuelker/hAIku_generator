@@ -5,40 +5,61 @@ sys.path.append(os.path.realpath(".."))
 
 import torch
 import torch.utils.data  # cant inherit from torch.utils.data.Dataset otherwise
+from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence
 import numpy as np
 
 import Discriminator
 from Dataset import Dataset
 
 import matplotlib.pyplot as plt
-from tqdm import trange
+from tqdm import tqdm
 import random
 
-def generate_random():
-	fake_sample = " ".join([random.choice(tuple(dataset_train.model.wv.wv.wv.wv.vocab.keys())) for word in range(random.randint(8, 13))])
-	fake_sample = dataset_train.encode(fake_sample)
-	fake_sample = fake_sample.view(1, -1, dataset_train.embedding_dim)
-	return fake_sample
+def generate_random(batch_size):
+	"""
+	Generates a collection of random haikus(batch_size), padds them to equal length
+	and returns them as a PackedSequenceObject
+	"""
+	lengths = []
+	unpadded_data = []
 
-batch_size = 1
+	for _ in range(batch_size):
+		# generate a single fake sample
+		fake_length = random.randint(8, 13)
+		fake_sample = " ".join([random.choice(tuple(dataset.model.wv.wv.wv.wv.vocab.keys())) for word in range(fake_length)])
+		fake_sample = dataset.encode(fake_sample)
+		unpadded_data.append(fake_sample)
+		lengths.append(fake_length)
+
+	# padd and pack the fake samples
+	padded_data = pad_sequence(unpadded_data, batch_first=True)
+	packed_data = pack_padded_sequence(padded_data, lengths, batch_first=True, enforce_sorted=False)
+	return packed_data
+
+batch_size = 3
 torch.manual_seed(1)
 np.random.seed(1)
 
-dataset_train = Dataset(path_data="../data/dataset_clean.txt", path_model="../models/word2vec.model", length = 1000, offset = 0)
-dataset_test = Dataset(path_data="../data/dataset_clean.txt", path_model="../models/word2vec.model", length = 100, offset = 1000)
-dataloader_train = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size)
-dataloader_test = torch.utils.data.DataLoader(dataset_test, batch_size=batch_size)
+dataset = Dataset(path_data="../data/dataset_clean.txt", path_model="../models/word2vec.model", train_test=0.4)
+training_iterator = dataset.training_iterator(batch_size=batch_size)
+testing_iterator = dataset.training_iterator(batch_size=batch_size)
+
 
 # Init/Load model
-discriminator = Discriminator.discriminator(in_size=dataset_train.embedding_dim)
+discriminator = Discriminator.discriminator(in_size=dataset.embedding_dim)
 # discriminator.loadModel(path="../models/Discriminator_pretrained.pt")
 
 # TRAINING
+epochs = 1
+training_progress = tqdm(total = dataset.train_cap * epochs, desc = "Training")
 discriminator.train()
 try:
-	for epoch in trange(1):
-		for real_sample in dataloader_train:
-			fake_sample = generate_random()
+	for epoch in range(epochs):
+		for real_sample in training_iterator:
+			fake_sample = generate_random(batch_size)
+
+			# update training prorgess bar
+			training_progress.update(batch_size)
 
 			# Pass the samples through the discriminator
 			score_real = discriminator(real_sample)
@@ -46,18 +67,14 @@ try:
 
 			# optimize
 			loss = torch.mean(- torch.log(0.001 + score_real) - torch.log(1.001 - score_fake))
-			discriminator.optimizer.zero_grad()
-			loss.backward()
-			discriminator.optimizer.step()
+			discriminator.learn(loss)
 
 			# save results
-			discriminator.scores_real.append(score_real.item())
-			discriminator.scores_fake.append(score_fake.item())
+			discriminator.scores_real.append(score_real.mean().item())
+			discriminator.scores_fake.append(score_fake.mean().item())
 			discriminator.losses.append(loss.item())
 
 finally:
-	print(discriminator.scores_fake)
-	print(discriminator.scores_real)
 	# Models are always saved, even after a KeyboardInterrupt
 	discriminator.saveModel(path="../models/Discriminator.pt")
 
@@ -79,16 +96,22 @@ finally:
 
 	fig.tight_layout()
 	plt.savefig("../training_graphs/disc_pretrain_scores")
-	plt.show()
+	# plt.show()
 
 	# TESTING
+	testing_progress = tqdm(total = dataset.test_cap - dataset.train_cap, desc="Training")
 	discriminator.eval()
 
 	with torch.no_grad():
-		total_real_score = 0
-		for real_sample in dataloader_test:
-			total_real_score += discriminator(real_sample)
-		mean_real_score = total_real_score / len(dataloader_test)
+		real_scores = torch.zeros(dataset.test_cap - dataset.train_cap, batch_size)
+		for index, real_sample in enumerate(testing_iterator):
+			# update progress bar
+			testing_progress.update(batch_size)
+
+			#forward pass
+			real_scores[index] = discriminator(real_sample).view(batch_size)
+
+		mean_real_score = torch.mean(real_scores)
 
 		print(f"The mean score for real samples from the training set is: {mean_real_score}")
 

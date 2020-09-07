@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
+from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence
 import numpy as np
 
 class generator(nn.Module):
@@ -63,8 +64,9 @@ class generator(nn.Module):
 
 	def generate(self, batch_size, seed=None):
 		"""returns one generated sequence and optimizes the generator"""
+		# ADD SUPPORT FOR <end> HERE
 
-		haiku_length = np.random.randint(5, 8)  # length boundaries are arbitrary
+		haiku_length = np.random.randint(12, 16)  # length boundaries are arbitrary
 		output = torch.zeros(batch_size, haiku_length + 1, self.out_size) # first element from the output is the inital seed
 		self.action_memory = torch.zeros(batch_size, haiku_length)
 
