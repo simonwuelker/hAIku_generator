@@ -7,7 +7,18 @@ character by character and `Embeddings`, which uses the pytorch Embeddings to ge
 This Branch, `Gaussian-Generator` attempts to extend the seqGAN Algorithm into a continuous Actionspace by having the Policy Gradient output
 a multivariate Gaussian Distribution across the output space instead of a probability distribution
 across a finite number of  actions.
-This project is my submission for the [BW-KI 2020](https://bw-ki.de/) Competition
+This project is my submission for the [BW-KI 2020](https://bw-ki.de/) Competition.
+
+## Functionality
+The SeqGAN Algorithm was first proposed by [this Paper](https://arxiv.org/pdf/1609.05473.pdf). Like in a normal GAN, the Discrimnator Model 
+rates the samples produced by the Generator on a scale from zero to one based on how realistic they seem. However, since the samples are
+sequential and the Discriminator cannot judge partial Sequences, it is unable to directly provide a reward for each timestep to the Generator.
+This Problem is solved by using the classic RL-Algorithm REINFORCE as a Generator Model and rolling out the sequences using Monte-Carlo.
+[SeqGAN-image](https://www.researchgate.net/publication/325709720/figure/fig1/AS:636539755302912@1528774312038/An-illustration-of-SeqGAN-for-text-generation-27-Compared-to-one-step-generation-of.png)
+One Downside of this Procedure is that a REINFORCE Agent can only act in a discrete environment since its output is a probability distribution over a 
+finite number of actions. A somewhat working Implementation of the classic Algorithm can be found in the `charlevel` Branch. I am trying to extend the
+Generator into a continuous Action Space by having the Generator output a multivariate Gaussian Distribution. Exploration can be ensured
+by having the Model only output the mean but not the standard deviation for each of the `num_actions` distributions.
 
 ## Usage
 For the sake of keeping it simple, I am not uploading my dataset here. However, you can just use the Haikus from
