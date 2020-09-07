@@ -46,18 +46,18 @@ class Dataset(torch.utils.data.Dataset):
 
 		return result
 
-# MOVE TO NOTEBOOK LATER, CAP AT 14
+# MOVE TO NOTEBOOK LATER, CAP AT 15, min 12
 
-# import torch.utils.data  # cant inherit from torch.utils.data.Dataset otherwise
-# from collections import Counter
-# import matplotlib.pyplot as plt
-# d = Dataset("data/dataset_clean.txt")
-# lengths = [len(sample.split()) for sample in d.data]
-# counter = Counter(lengths)
-# occurences = [counter[key] for key in counter.keys()]
-# print(occurences)
-# plt.bar(x=list(counter.keys()), height=occurences)
-# plt.show()
+import torch.utils.data  # cant inherit from torch.utils.data.Dataset otherwise
+from collections import Counter
+import matplotlib.pyplot as plt
+d = Dataset("data/dataset_clean.txt")
+lengths = [len(sample.split()) for sample in d.data]
+counter = Counter(lengths)
+occurences = [counter[key] for key in counter.keys()]
+print(occurences)
+plt.bar(x=list(counter.keys()), height=occurences)
+plt.show()
 
 # dataloader_train = torch.utils.data.DataLoader(d, batch_size=2)
 # for element in dataloader_train:
