@@ -26,7 +26,7 @@ def generate_random(batch_size):
 	for _ in range(batch_size):
 		# generate a single fake sample
 		fake_length = random.randint(8, 13)
-		fake_sample = " ".join([random.choice(tuple(dataset.model.wv.wv.wv.wv.vocab.keys())) for word in range(fake_length)])
+		fake_sample = " ".join([random.choice(tuple(dataset.embedding.vocab)) for word in range(fake_length)])
 		fake_sample = dataset.encode(fake_sample)
 		unpadded_data.append(fake_sample)
 		lengths.append(fake_length)
@@ -41,12 +41,12 @@ torch.manual_seed(1)
 np.random.seed(1)
 
 dataset = Dataset(path_data="../data/dataset_clean.txt", path_model="../models/word2vec.model", train_test=0.4)
-training_iterator = dataset.training_iterator(batch_size=batch_size)
-testing_iterator = dataset.training_iterator(batch_size=batch_size)
+training_iterator = dataset.DataLoader(end=dataset.train_cap, batch_size=batch_size)
+testing_iterator = dataset.DataLoader(start=dataset.train_cap, end=dataset.test_cap, batch_size=batch_size)
 
 
 # Init/Load model
-discriminator = Discriminator.discriminator(in_size=dataset.embedding_dim)
+discriminator = Discriminator.discriminator(in_size=dataset.embedding.embedding_dim)
 # discriminator.loadModel(path="../models/Discriminator_pretrained.pt")
 
 # TRAINING
@@ -99,7 +99,7 @@ finally:
 	# plt.show()
 
 	# TESTING
-	testing_progress = tqdm(total = dataset.test_cap - dataset.train_cap, desc="Training")
+	testing_progress = tqdm(total=dataset.test_cap - dataset.train_cap, desc="Training")
 	discriminator.eval()
 
 	with torch.no_grad():

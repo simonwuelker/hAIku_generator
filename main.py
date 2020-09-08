@@ -14,32 +14,35 @@ from tqdm import trange
 torch.manual_seed(1)
 np.random.seed(1)
 
-modelsave_path = "models/"
 batch_size = 1
+modelsave_path = "models/"
 
-dataset = Dataset(path_data="data/small_dataset.txt")
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
+dataset = Dataset(path_data="data/small_dataset.txt", train_test=1)
+training_iterator = dataset.DataLoader(end=dataset.train_cap, batch_size=batch_size)
 
 # Init models
 generator = Generator.generator(dataset.embedding_dim)
 discriminator = Discriminator.discriminator(in_size=dataset.embedding_dim)
-
-# load models
-# generator.loadModel()
+generator.loadModel()
 discriminator.loadModel()
 
 # TRAINING
 generator.train()
 discriminator.train()
+epochs = 1
+training_progress = tqdm(total = dataset.train_cap * epochs, desc = "Training")
 
 try:
-	for epoch in trange(1000):
-		for real_sample in dataloader:
+	for epoch in range(epochs):
+		for real_sample in training_iterator:
 			fake_sample = generator.generate(batch_size)
+
+			# update the progress bar
+			training_progress.update(batch_size)
 
 			# take outputs from discriminator
 			score_real = discriminator(real_sample)
-			score_fake = discriminator(fake_sample.detach())
+			score_fake = discriminator(fake_sample)
 
 			# Save scores for evaluation
 			discriminator.scores_real.append(score_real.item())
