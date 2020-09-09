@@ -4,7 +4,7 @@ import os
 sys.path.append(os.path.realpath(".."))
 
 import torch
-import torch.utils.data  # cant inherit from torch.utils.data.Dataset otherwise
+from torch.nn.utils.rnn import pad_packed_sequence
 import numpy as np
 
 import Generator
@@ -13,75 +13,75 @@ import Tools
 
 import matplotlib.pyplot as plt
 import warnings
-from tqdm import trange
-
-
-def generateHaiku(seed, num_haikus, length):
-	"""Generates a certain number of haikus with a given length starting from some specified words"""
-	seed = dataset.encode(seed)
-	for haiku_ix in range(num_haikus):
-		result = torch.zeros(1, length, 1)
-		result[:, :seed.shape[1]] = seed
-
-		# generate the missing words to complete the haiku
-		for i in range(length - seed.shape[1]):
-			generator.reset_hidden(batch_size=1)  # every step is essentially a new forward pass
-
-			output = generator(result[:, :i + 1, :])[-1]
-			index = Tools.sample_from_output(output)
-			result[0, i + 1] = index
-
-		print(f"Haiku Nr.{haiku_ix}:{dataset.decode(result)}")
+from tqdm import tqdm
 
 
 batch_size = 1
 torch.manual_seed(1)
 np.random.seed(1)
 
-dataset = Dataset(path="../data/small_dataset.txt")
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
+dataset = Dataset(path_data="../data/dataset_clean.txt", path_model="../models/word2vec.model", train_test=1)
+dataloader = dataset.DataLoader(batch_size=batch_size, end=dataset.train_cap)
 
 # Init/Load model
-generator = Generator.generator(alpha=0.01, beta=0.01, in_size=len(dataset.unique_tokens), embedding_dim=50)
-generator.loadModels()
+generator = Generator.generator(embedding_dim=dataset.embedding.embedding_dim)
+# generator.loadModel()
+std = torch.full([batch_size, dataset.embedding.embedding_dim], 1, dtype=torch.float32)  # manual std is used during training
 
 # TRAINING
 generator.train()
+epochs = 1
+training_progress = tqdm(total=dataset.train_cap * epochs, desc="Training")
 try:
-	for epoch in trange(0):
-		total_loss = 0
-		for sample in dataloader:
-			generator.reset_hidden(batch_size)
+	for epoch in range(epochs):
+		for packed_sample in dataloader:
+			# update the progress bar
+			training_progress.update(batch_size)
 
-			input = sample[:, :-1]
-			target = sample[:, 1:]
+			# unpack the sample
+			sample, lengths = pad_packed_sequence(packed_sample, batch_first=True)
 
-			output = generator(input.long())
-			target = target.squeeze()
-			loss = generator.criterion(output, target.long())
-			total_loss += loss.item()
+			# calculate the loss based on 'how far off' the generator is on each token
+			loss = 0
+			for index in range(1, sample.shape[1] - 1):
+				input = sample[:, :index]
+				target = sample[: index]
 
+				predicted_tokens = generator(input, std=std)
+
+				# if the sequence has ended, dont count the loss
+				for i, length in enumerate(lengths):
+					if index <= length:
+						loss += F.mse(predicted_tokens[i], target[i])
+
+			# optimize the model
 			generator.optimizer.zero_grad()
 			loss.backward()
 			generator.optimizer.step()
-
-		generator.losses.append(total_loss)
+			generator.losses.append(loss.item())
 
 finally:
 	# Models are always saved, even after a KeyboardInterrupt
-	torch.save(generator.state_dict(), "../models/Generator_pretrained.pt")
+	generator.saveModel("../models/Generator_pretrained.pt")
 
-	# plot the graph of the different losses over time
-	fig, ax = plt.subplots()
-	ax.plot(generator.losses, label="Generator")
+	# plot generator loss
+	plt.title("Loss")
+	plt.plot(generator.losses)
 	plt.ylabel("Loss")
 	plt.xlabel("Epochs")
-	ax.legend()
-
+	plt.savefig("../training_graphs/generator_pretraining")
 	plt.show()
 
 	# TESTING
 	generator.eval()
 
 	with torch.no_grad():
-		generateHaiku("memorial", num_haikus=10, length=7)
+		# generate 10 Haikus
+		packed_haikus = generator.generate(batch_size=10, set_std=torch.full([10, dataset.embedding.embedding_dim], 1, dtype=torch.float32))
+
+		# unpack sequence
+		unpacked, lengths = pad_packed_sequence(packed_haikus)
+		decoded = dataset.decode(unpacked)
+		for haiku in decoded:
+			print(haiku)
+

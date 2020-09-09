@@ -1,4 +1,3 @@
-# https://mlexplained.com/2018/02/08/a-comprehensive-tutorial-to-torchtext/
 import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence
@@ -16,6 +15,7 @@ class Embedding:
 
 		# append <eos> and <unk> to the end of wv
 		self.vocab += ["<unk>", "<eos>"]
+
 		# update dictionaries
 		self.word_to_ix["<unk>"] = len(self.vocab) - 2
 		self.word_to_ix["<eos>"] = len(self.vocab) - 1
@@ -93,8 +93,10 @@ class Dataset(torch.utils.data.Dataset):
 			yield packed_data
 
 	def encode(self, haiku):
-		""" Encodes a single line of text into either indices or word tensors"""
-		# haiku += " <eos>"
+		"""
+		Encodes a single line of text into a Tensor of Shape [num_words, embedding_dim].
+		Sequence Packing is done later in the DataLoader Function.
+		"""
 		words = haiku.split()
 		result = torch.empty(len(words), self.embedding.embedding_dim)
 		for index, word in enumerate(words):
@@ -104,18 +106,17 @@ class Dataset(torch.utils.data.Dataset):
 
 	def decode(self, tensor):
 		# this function is pretty slow
-		tensor = tensor.detach()
 		batch_size = tensor.shape[0]
 		seq_length = tensor.shape[1]
 
-		result = []
+		haikus = []
 		for batch_ix in range(batch_size):
-			batchstring = ""
+			haiku = ""
 			for word_vector in tensor[batch_ix]:
-				batchstring += self.embedding.most_similar(word_vector, single=True) + " "
-			result.append(batchstring)
+				haiku += self.embedding.most_similar(word_vector, single=True) + " "
+			haikus.append(haiku)
 
-		return result
+		return haikus
 
 # MOVE TO NOTEBOOK LATER, CAP AT 15, min 12
 

@@ -112,5 +112,5 @@ finally:
 	score_plot.title.set_text("Scores")
 
 	fig.tight_layout()
-	plt.savefig("../training_graphs/disc_pretrain_scores")
+	plt.savefig("../training_graphs/discriminator_pretraining")
 	plt.show()

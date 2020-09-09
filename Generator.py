@@ -2,18 +2,17 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence
+from torch.nn.utils.rnn import pack_padded_sequence
 import numpy as np
 
 class generator(nn.Module):
-	def __init__(self, embedding_dim, hidden_size=400, n_layers=2, lr=0.001):
+	def __init__(self, embedding_dim, hidden_size=400, n_layers=2):
 		super(generator, self).__init__()
 
 		self.embedding_dim = embedding_dim
 		self.out_size = embedding_dim
 		self.hidden_size = hidden_size
 		self.n_layers = n_layers
-		self.lr = lr
 		self.losses = []
 		self.discount = 0.9
 		self.pretrained_path = "models/Generator_pretrained.pt"
@@ -42,16 +41,22 @@ class generator(nn.Module):
 		)
 
 		self.criterion = nn.CrossEntropyLoss()
-		self.optimizer = optim.Adam(self.parameters(), self.lr)
+		self.optimizer = optim.Adam(self.parameters())
 
-	def forward(self, input):
+	def forward(self, input, std=None):
+		"""
+		Forwards the input through the model. If std is not None, 
+		the model will only output the mean. std should be manually
+		set during pretraining.
+		"""
 		# take the last values from the lstm-forward pass
 		lstm_out, _ = self.lstm(input)
 		lstm_out = lstm_out[:, -1].view(-1, self.hidden_size)
 
 		# get the mean and standard deviation
 		mean = self.mean(lstm_out)
-		std = torch.exp(self.std(lstm_out))
+		if std is None:
+			std = torch.exp(self.std(lstm_out))
 
 		# sample the action based on the output from the networks
 		distributions = torch.distributions.Normal(mean, std)
@@ -62,9 +67,12 @@ class generator(nn.Module):
 		self.reward_memory = torch.empty_like(self.action_memory)
 		return actions
 
-	def generate(self, batch_size, seed=None):
-		"""returns one generated sequence and optimizes the generator"""
-		# ADD SUPPORT FOR <end> HERE
+	def generate(self, batch_size, seed=None, set_std=None):
+		"""
+		Returns a batch of padded haikus as a PackedSequence Object.
+		If the std for the normal distribution can optionally be provided through
+		the set_std Parameter. If set to None, the model will generate the std.
+		"""
 
 		haiku_length = np.random.randint(12, 16)  # length boundaries are arbitrary
 		output = torch.zeros(batch_size, haiku_length + 1, self.out_size) # first element from the output is the inital seed
@@ -74,10 +82,17 @@ class generator(nn.Module):
 		for i in range(1, haiku_length + 1):
 			# forward pass
 			input = output[:, :i].clone()  # inplace operation, clone is necessary
-			output[:, i] = self(input).view(batch_size, self.out_size)		
+			output[:, i] = self(input, std=set_std).view(batch_size, self.out_size)		
 
 		#remove the seed again
-		return output[:, 1:]
+		output = output[:, 1:]
+
+		# set all values after <eos> to zero (pad_sequence)
+
+		# pack the haikus into a PackedSequence object
+		haiku_lengths = [haiku_length] * batch_size
+		packed_output = pack_padded_sequence(output, haiku_lengths, batch_first=True)
+		return packed_output
 
 	def learn(self, fake_sample, discriminator):
 		# This is just plain REINFORCE
@@ -137,9 +152,7 @@ class generator(nn.Module):
 		self.optimizer.step()
 
 		self.losses.append(total_loss.item())
-		if total_loss.item() < 0:
-			print("--")
-			print(discounted_rewards, self.reward_memory)
+
 		return total_loss, self.action_memory, discounted_rewards, completed
 
 	def loadModel(self, path=None):
