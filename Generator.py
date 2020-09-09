@@ -131,14 +131,16 @@ class generator(nn.Module):
 		std[std == 0] = 1  # remove zeros from std
 		self.reward_memory = (self.reward_memory - mean.view(-1, 1)) / std.view(-1, 1)
 
-		# calculate the discounted future rewards for every action
+		# create a discount vector [1, d, d^2, d^3, ...]
 		discounted_rewards = torch.zeros(batch_size, seq_length)
-		for batch_ix in range(batch_size):
-			for seq_ix in range(seq_length):
-				discounted_reward = 0
-				for t in range(seq_ix, seq_length):
-					discounted_reward += (self.discount**(t-seq_ix)) * self.reward_memory[batch_ix, t]
-				discounted_rewards[batch_ix, seq_ix] = discounted_reward
+		discounts = torch.full([seq_length], self.discount, dtype=torch.float32)
+		discounts[0] = 1
+		factors = torch.cumprod(discounts, dim=-1)
+
+		# calculate the future discounted rewards
+		for seq_ix in range(seq_length):
+			discounted_rewards[:, seq_ix] = torch.matmul(self.reward_memoryrewards[:, seq_ix:], factors[:seq_length - seq_ix])
+
 
 		# calculate the loss using the REINFORCE Algorithm
 		total_loss = 0

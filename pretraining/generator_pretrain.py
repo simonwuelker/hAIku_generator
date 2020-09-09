@@ -5,6 +5,7 @@ sys.path.append(os.path.realpath(".."))
 
 import torch
 from torch.nn.utils.rnn import pad_packed_sequence
+import torch.nn.functional as F
 import numpy as np
 
 import Generator

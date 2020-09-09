@@ -8,7 +8,7 @@ import Discriminator
 from Dataset import Dataset
 
 import matplotlib.pyplot as plt
-from tqdm import trange
+from tqdm import tqdm
 
 # using a set seed for Reproducibility
 torch.manual_seed(1)
