@@ -40,7 +40,7 @@ batch_size = 3
 torch.manual_seed(1)
 np.random.seed(1)
 
-dataset = Dataset(path_data="../data/dataset_clean.txt", path_model="../models/word2vec.model", train_test=0.4)
+dataset = Dataset(path_data="../data/dataset_clean.txt", path_model="../models/word2vec.model", train_test=0.04)
 training_iterator = dataset.DataLoader(end=dataset.train_cap, batch_size=batch_size)
 testing_iterator = dataset.DataLoader(start=dataset.train_cap, end=dataset.test_cap, batch_size=batch_size)
 
@@ -78,6 +78,23 @@ finally:
 	# Models are always saved, even after a KeyboardInterrupt
 	discriminator.saveModel(path="../models/Discriminator.pt")
 
+	# TESTING
+	testing_progress = tqdm(total=dataset.test_cap - dataset.train_cap, desc="Testing")
+	discriminator.eval()
+
+	with torch.no_grad():
+		real_scores = torch.zeros(dataset.test_cap - dataset.train_cap, batch_size)
+		for index, real_sample in enumerate(testing_iterator):
+			# update progress bar
+			testing_progress.update(batch_size)
+
+			#forward pass
+			real_scores[index] = discriminator(real_sample).view(batch_size)
+
+		mean_real_score = torch.mean(real_scores)
+
+		print(f"The mean score for real samples from the training set is: {mean_real_score}")
+
 	# smooth out the loss functions (avg of last window episodes)
 	window = 25
 	discriminator.scores_real = [np.mean(discriminator.scores_real[max(0, t-window):(t+1)]) for t in range(len(discriminator.scores_real))]
@@ -96,23 +113,4 @@ finally:
 
 	fig.tight_layout()
 	plt.savefig("../training_graphs/disc_pretrain_scores")
-	# plt.show()
-
-	# TESTING
-	testing_progress = tqdm(total=dataset.test_cap - dataset.train_cap, desc="Training")
-	discriminator.eval()
-
-	with torch.no_grad():
-		real_scores = torch.zeros(dataset.test_cap - dataset.train_cap, batch_size)
-		for index, real_sample in enumerate(testing_iterator):
-			# update progress bar
-			testing_progress.update(batch_size)
-
-			#forward pass
-			real_scores[index] = discriminator(real_sample).view(batch_size)
-
-		mean_real_score = torch.mean(real_scores)
-
-		print(f"The mean score for real samples from the training set is: {mean_real_score}")
-
-		
+	plt.show()
