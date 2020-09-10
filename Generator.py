@@ -10,7 +10,6 @@ class generator(nn.Module):
 		super(generator, self).__init__()
 
 		self.embedding_dim = embedding_dim
-		self.out_size = embedding_dim
 		self.hidden_size = hidden_size
 		self.n_layers = n_layers
 		self.losses = []
@@ -43,7 +42,8 @@ class generator(nn.Module):
 		self.criterion = nn.CrossEntropyLoss()
 		self.optimizer = optim.Adam(self.parameters())
 
-	def forward(self, input, std=None):
+
+	def forward(self, input, std=None, save_probs=True):
 		"""
 		Forwards the input through the model. If std is not None, 
 		the model will only output the mean. std should be manually
@@ -61,10 +61,9 @@ class generator(nn.Module):
 		# sample the action based on the output from the networks
 		distributions = torch.distributions.Normal(mean, std)
 		actions = distributions.sample()
-
-		# initialize the memories needed for REINFORCE
-		self.action_memory[:, input.shape[1]-1] = torch.mean(distributions.log_prob(actions))
-		self.reward_memory = torch.empty_like(self.action_memory)
+		if save_probs:
+			# save the action prob for REINFORCE
+			self.action_memory[:, input.shape[1]-1] = torch.mean(distributions.log_prob(actions))
 		return actions
 
 	def generate(self, batch_size, seed=None, set_std=None):
@@ -75,22 +74,27 @@ class generator(nn.Module):
 		"""
 
 		haiku_length = np.random.randint(12, 16)  # length boundaries are arbitrary
-		output = torch.zeros(batch_size, haiku_length + 1, self.out_size) # first element from the output is the inital seed
+		output = torch.zeros(batch_size, haiku_length + 1, self.embedding_dim) # first element from the output is the inital seed
 		self.action_memory = torch.zeros(batch_size, haiku_length)
 
 		# generate sequence starting from a given seed
 		for i in range(1, haiku_length + 1):
 			# forward pass
 			input = output[:, :i].clone()  # inplace operation, clone is necessary
-			output[:, i] = self(input, std=set_std).view(batch_size, self.out_size)		
+			output[:, i] = self(input, std=set_std).view(batch_size, self.embedding_dim)		
 
 		#remove the seed again
 		output = output[:, 1:]
 
-		# set all values after <eos> to zero (pad_sequence)
+		# all haikus are initialized with max length, if a <eos> token is found the length is reduced
+		haiku_lengths = torch.full([batch_size], seq_len, dtype=torch.float32)
+
+		x = torch.tensor([[all(word_tensor) for word_tensor in batch] for batch in output == torch.zeros(self.embedding_dim)])
+		batch_indices, seq_indices = torch.nonzero(x, as_tuple=True)
+		for batch_ix, seq_ix in zip(batch_indices, seq_indices):
+			haiku_lengths[batch_ix] = seq_ix
 
 		# pack the haikus into a PackedSequence object
-		haiku_lengths = [haiku_length] * batch_size
 		packed_output = pack_padded_sequence(output, haiku_lengths, batch_first=True)
 		return packed_output
 
@@ -109,13 +113,13 @@ class generator(nn.Module):
 
 			for rollout_ix in range(num_rollouts):
 				# initiate starting sequence + seed
-				completed = torch.zeros(batch_size, seq_length + 1, self.out_size)
+				completed = torch.zeros(batch_size, seq_length + 1, self.embedding_dim)
 				completed[:, 1:seq_ix + 1] = fake_sample[:, :seq_ix]
 
 
 				# rollout the remaining part of the sequence, rollout policy = generator policy
 				for j in range(seq_ix + 1, fake_sample.shape[1] + 1):
-					input = completed[:, :j].clone().view(batch_size, j, self.out_size)
+					input = completed[:, :j].clone().view(batch_size, j, self.embedding_dim)
 
 					# choose action
 					action = self(input)
