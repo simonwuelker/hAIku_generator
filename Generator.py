@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence
+from torch.distributions import MultivariateNormal
 import numpy as np
 
 class generator(nn.Module):
@@ -49,6 +50,8 @@ class generator(nn.Module):
 		the model will only output the mean. std should be manually
 		set during pretraining.
 		"""
+		batch_size = input.shape[0]
+
 		# take the last values from the lstm-forward pass
 		lstm_out, _ = self.lstm(input)
 		lstm_out = lstm_out[:, -1].view(-1, self.hidden_size)
@@ -58,12 +61,21 @@ class generator(nn.Module):
 		if std is None:
 			std = torch.exp(self.std(lstm_out))
 
-		# sample the action based on the output from the networks
-		distributions = torch.distributions.Normal(mean, std)
-		actions = distributions.sample()
+		# put the std on the diagonals of a m x m Matrix where m = embedding_dim
+		std_matrix = torch.zeros(batch_size, self.embedding_dim, self.embedding_dim)
+		for dimension in range(batch_size):
+			std_matrix[dimension] = std[dimension] * torch.eye(self.embedding_dim)
+
+		# Construct a Multivariate Gaussian Distribution and sample an action
+		m = MultivariateNormal(mean, std_matrix)
+		actions = m.sample()
+
+
+		print(actions.requires_grad, 1)
+		assert False
+		# save the action prob for REINFORCE
 		if save_probs:
-			# save the action prob for REINFORCE
-			self.action_memory[:, input.shape[1]-1] = torch.mean(distributions.log_prob(actions))
+			self.action_memory[:, input.shape[1]-1] = torch.mean(m.log_prob(actions))
 		return actions
 
 	def generate(self, batch_size, seed=None, set_std=None):
@@ -87,7 +99,7 @@ class generator(nn.Module):
 		output = output[:, 1:]
 
 		# all haikus are initialized with max length, if a <eos> token is found the length is reduced
-		haiku_lengths = torch.full([batch_size], seq_len, dtype=torch.float32)
+		haiku_lengths = torch.full([batch_size], haiku_length, dtype=torch.float32)
 
 		x = torch.tensor([[all(word_tensor) for word_tensor in batch] for batch in output == torch.zeros(self.embedding_dim)])
 		batch_indices, seq_indices = torch.nonzero(x, as_tuple=True)

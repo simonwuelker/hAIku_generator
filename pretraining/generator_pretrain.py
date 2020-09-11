@@ -45,15 +45,15 @@ try:
 			# calculate the loss based on 'how far off' the generator is on each token
 			loss = 0
 			for index in range(1, sample.shape[1] - 1):
-				input = sample[:, :index]
-				target = sample[: index]
+				input = sample[:, :index].requires_grad_(True)
+				target = sample[:, index]
 
-				predicted_tokens = generator(input, std=std)
+				predicted_tokens = generator(input, std=std, save_probs=False)
 
 				# if the sequence has ended, dont count the loss
 				for i, length in enumerate(lengths):
 					if index <= length:
-						loss += F.mse(predicted_tokens[i], target[i])
+						loss += F.mse_loss(predicted_tokens[i], target[i])
 
 			# optimize the model
 			generator.optimizer.zero_grad()
@@ -65,24 +65,24 @@ finally:
 	# Models are always saved, even after a KeyboardInterrupt
 	generator.saveModel("../models/Generator_pretrained.pt")
 
-	# plot generator loss
-	plt.title("Loss")
-	plt.plot(generator.losses)
-	plt.ylabel("Loss")
-	plt.xlabel("Epochs")
-	plt.savefig("../training_graphs/generator_pretraining")
-	plt.show()
+	# # plot generator loss
+	# plt.title("Loss")
+	# plt.plot(generator.losses)
+	# plt.ylabel("Loss")
+	# plt.xlabel("Epochs")
+	# plt.savefig("../training_graphs/generator_pretraining")
+	# plt.show()
 
-	# TESTING
-	generator.eval()
+	# # TESTING
+	# generator.eval()
 
-	with torch.no_grad():
-		# generate 10 Haikus
-		packed_haikus = generator.generate(batch_size=10, set_std=torch.full([10, dataset.embedding.embedding_dim], 1, dtype=torch.float32))
+	# with torch.no_grad():
+	# 	# generate 10 Haikus
+	# 	packed_haikus = generator.generate(batch_size=1, set_std=torch.full([10, dataset.embedding.embedding_dim], 1, dtype=torch.float32))
 
-		# unpack sequence
-		unpacked, lengths = pad_packed_sequence(packed_haikus)
-		decoded = dataset.decode(unpacked)
-		for haiku in decoded:
-			print(haiku)
+	# 	# unpack sequence
+	# 	unpacked, lengths = pad_packed_sequence(packed_haikus, batch_first=True)
+	# 	decoded = dataset.decode(unpacked)
+	# 	for haiku in decoded:
+	# 		print(haiku)
 
