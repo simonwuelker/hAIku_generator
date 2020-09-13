@@ -2,7 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.nn.utils.rnn import pad_packed_sequence
+from torch.nn.utils.rnn import pad_packed_sequence, PackedSequence
 
 
 class discriminator(nn.Module):
@@ -36,11 +36,12 @@ class discriminator(nn.Module):
 		self.pretrained_path = "models/Discriminator_pretrained.pt"
 		self.save_path = "models/Discriminator.pt"
 
-	def forward(self, packed_input):
-		packed_output, _ = self.lstm(packed_input)
-		
-		#unpack the output
-		lstm_out, _ = pad_packed_sequence(packed_output, batch_first=True)
+	def forward(self, input):
+		lstm_out, _ = self.lstm(input)
+
+		if isinstance(lstm_out, PackedSequence):
+			#unpack the output
+			lstm_out, _ = pad_packed_sequence(lstm_out, batch_first=True)
 
 		last_hidden = lstm_out[:, -1]  # take the last hidden states from every batch
 		scores = self.network(last_hidden)

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-from torch.nn.utils.rnn import pack_padded_sequence
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from torch.distributions import MultivariateNormal
 import numpy as np
 
@@ -18,7 +18,7 @@ class generator(nn.Module):
 		self.pretrained_path = "models/Generator_pretrained.pt"
 		self.chkpt_path = "models/Generator.pt"
 
-		self.lstm = nn.LSTM(self.embedding_dim, self.hidden_size, self.n_layers, batch_first=True)
+		self.lstm = nn.LSTM(self.embedding_dim + 1, self.hidden_size, self.n_layers, batch_first=True)
 		self.mean = nn.Sequential(
 			nn.Linear(self.hidden_size, 400),
 			nn.ReLU(),
@@ -44,15 +44,22 @@ class generator(nn.Module):
 		self.optimizer = optim.Adam(self.parameters())
 
 
-	def forward(self, input, std=None, save_probs=True):
+	def forward(self, sequence, haiku_length, std=None, save_probs=True):
 		"""
 		Forwards the input through the model. If std is not None, 
 		the model will only output the mean. std should be manually
 		set during pretraining.
 		"""
-		batch_size = input.shape[0]
+		batch_size = sequence.shape[0]
+		seq_length = sequence.shape[1]
+
+		# tell the model the remaining number of words at every step
+		input = torch.zeros(batch_size, seq_length, self.embedding_dim + 1)
+		input[:, :, 0] = torch.arange(haiku_length, haiku_length - seq_length, -1)
+		input[:, :, 1:] = sequence
 
 		# take the last values from the lstm-forward pass
+		# reuse hidden/cell state?
 		lstm_out, _ = self.lstm(input)
 		lstm_out = lstm_out[:, -1].view(-1, self.hidden_size)
 
@@ -67,15 +74,13 @@ class generator(nn.Module):
 			std_matrix[dimension] = std[dimension] * torch.eye(self.embedding_dim)
 
 		# Construct a Multivariate Gaussian Distribution and sample an action
+		# for pretraining, use log_prob since sample() doesnt provide gradient
 		m = MultivariateNormal(mean, std_matrix)
 		actions = m.sample()
 
-
-		print(actions.requires_grad, 1)
-		assert False
 		# save the action prob for REINFORCE
 		if save_probs:
-			self.action_memory[:, input.shape[1]-1] = torch.mean(m.log_prob(actions))
+			self.action_memory[:, input.shape[1]-1] = m.log_prob(actions)
 		return actions
 
 	def generate(self, batch_size, seed=None, set_std=None):
@@ -93,7 +98,7 @@ class generator(nn.Module):
 		for i in range(1, haiku_length + 1):
 			# forward pass
 			input = output[:, :i].clone()  # inplace operation, clone is necessary
-			output[:, i] = self(input, std=set_std).view(batch_size, self.embedding_dim)		
+			output[:, i] = self(input, haiku_length, std=set_std).view(batch_size, self.embedding_dim)		
 
 		#remove the seed again
 		output = output[:, 1:]
@@ -101,16 +106,17 @@ class generator(nn.Module):
 		# all haikus are initialized with max length, if a <eos> token is found the length is reduced
 		haiku_lengths = torch.full([batch_size], haiku_length, dtype=torch.float32)
 
-		x = torch.tensor([[all(word_tensor) for word_tensor in batch] for batch in output == torch.zeros(self.embedding_dim)])
-		batch_indices, seq_indices = torch.nonzero(x, as_tuple=True)
-		for batch_ix, seq_ix in zip(batch_indices, seq_indices):
-			haiku_lengths[batch_ix] = seq_ix
+		# x = torch.tensor([[all(word_tensor) for word_tensor in batch] for batch in output == torch.zeros(self.embedding_dim)])
+		# batch_indices, seq_indices = torch.nonzero(x, as_tuple=True)
+		# for batch_ix, seq_ix in zip(batch_indices, seq_indices):
+		# 	haiku_lengths[batch_ix] = seq_ix
 
 		# pack the haikus into a PackedSequence object
 		packed_output = pack_padded_sequence(output, haiku_lengths, batch_first=True)
 		return packed_output
 
-	def learn(self, fake_sample, discriminator):
+	def learn(self, fake_sample_packed, discriminator):
+		fake_sample, lengths = pad_packed_sequence(fake_sample_packed, batch_first=True)
 		# This is just plain REINFORCE
 		batch_size = fake_sample.shape[0]
 		seq_length = fake_sample.shape[1]
@@ -131,11 +137,10 @@ class generator(nn.Module):
 
 				# rollout the remaining part of the sequence, rollout policy = generator policy
 				for j in range(seq_ix + 1, fake_sample.shape[1] + 1):
-					input = completed[:, :j].clone().view(batch_size, j, self.embedding_dim)
+					input_sequence = completed[:, :j].clone().view(batch_size, j, self.embedding_dim)
 
-					# choose action
-					action = self(input)
-					completed[:, j] = action
+					# choose action 
+					completed[:, j] = self(input_sequence, seq_length)
 
 				# get the estimated reward for that rollout from the discriminator
 				qualities[:, rollout_ix] = discriminator(completed[:, 1:]).detach()
@@ -155,14 +160,11 @@ class generator(nn.Module):
 
 		# calculate the future discounted rewards
 		for seq_ix in range(seq_length):
-			discounted_rewards[:, seq_ix] = torch.matmul(self.reward_memoryrewards[:, seq_ix:], factors[:seq_length - seq_ix])
+			discounted_rewards[:, seq_ix] = torch.matmul(self.reward_memory[:, seq_ix:], factors[:seq_length - seq_ix])
 
 
 		# calculate the loss using the REINFORCE Algorithm
-		total_loss = 0
-		for batch_ix in range(batch_size):
-			for seq_ix in range(seq_length):
-				total_loss += -1 * discounted_rewards[batch_ix, seq_ix] * self.action_memory[batch_ix, seq_ix]
+		total_loss = torch.sum(-1 * discounted_rewards * self.action_memory)
 
 		# optimize the agent
 		self.optimizer.zero_grad()
@@ -170,8 +172,6 @@ class generator(nn.Module):
 		self.optimizer.step()
 
 		self.losses.append(total_loss.item())
-
-		return total_loss, self.action_memory, discounted_rewards, completed
 
 	def loadModel(self, path=None):
 		if path is None:
