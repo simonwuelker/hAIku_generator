@@ -44,7 +44,7 @@ class generator(nn.Module):
 		self.optimizer = optim.Adam(self.parameters())
 
 
-	def forward(self, sequence, haiku_length, std=None, save_probs=True):
+	def forward(self, sequence, haiku_length, std=None):
 		"""
 		Forwards the input through the model. If std is not None, 
 		the model will only output the mean. std should be manually
@@ -78,10 +78,7 @@ class generator(nn.Module):
 		m = MultivariateNormal(mean, std_matrix)
 		actions = m.sample()
 
-		# save the action prob for REINFORCE
-		if save_probs:
-			self.action_memory[:, input.shape[1]-1] = m.log_prob(actions)
-		return actions
+		return actions, m
 
 	def generate(self, batch_size, seed=None, set_std=None):
 		"""
@@ -98,7 +95,9 @@ class generator(nn.Module):
 		for i in range(1, haiku_length + 1):
 			# forward pass
 			input = output[:, :i].clone()  # inplace operation, clone is necessary
-			output[:, i] = self(input, haiku_length, std=set_std).view(batch_size, self.embedding_dim)		
+			word, distribution = self(input, haiku_length, std=set_std).view(batch_size, self.embedding_dim)
+			output[:, i] = word
+			self.action_memory[:, i - 1] = distribution.log_prob(word)
 
 		#remove the seed again
 		output = output[:, 1:]
