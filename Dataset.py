@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence
 import numpy as np
-import gensim
+# import gensim
 
 
 class Embedding:
@@ -67,12 +67,12 @@ class Embedding:
 			return zip(words, lowest_distances)
 
 class Dataset(torch.utils.data.Dataset):
-	def __init__(self, path_data, path_model="models/word2vec.model", train_test=0.8):
+	def __init__(self, path_data, path_model, train_test=0.8):
 		# load all the haikus from a file
 		with open(path_data, "r", encoding="utf8", errors="ignore") as infile:
 			self.data = infile.read().splitlines()
 
-		self.embedding = torch.load(path_model)
+		self.embedding = torch.load(f"{path_model}/word2vec.model")
 
 		self.train_test = train_test
 		self.train_cap = int(len(self.data) * self.train_test)

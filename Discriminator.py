@@ -6,7 +6,7 @@ from torch.nn.utils.rnn import pad_packed_sequence, PackedSequence
 
 
 class discriminator(nn.Module):
-	def __init__(self, in_size, hidden_size=600, out_size=1, n_layers=2, dropout=0.1):
+	def __init__(self, in_size, model_path, hidden_size=600, out_size=1, n_layers=2, dropout=0.1):
 		super(discriminator, self).__init__()
 
 		self.in_size = in_size
@@ -33,8 +33,8 @@ class discriminator(nn.Module):
 		self.losses = []
 		self.scores_real = []
 		self.scores_fake = []
-		self.pretrained_path = "models/Discriminator_pretrained.pt"
-		self.save_path = "models/Discriminator.pt"
+		self.pretrained_path = f"{model_path}/Discriminator_pretrained.pt"
+		self.save_path = f"{model_path}/Discriminator.pt"
 
 	def forward(self, input):
 		lstm_out, _ = self.lstm(input)

@@ -9,36 +9,51 @@ from Dataset import Dataset
 
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import argparse
 
-# using a set seed for Reproducibility
-torch.manual_seed(1)
-np.random.seed(1)
+# Define an argument parser
+parser = argparse.ArgumentParser(description="Train a SeqGAN model in continuous Action Space")
+parser.add_argument("--data", help="Specify path to the Dataset", default="data/dataset_clean.txt", dest="data_path")
+parser.add_argument("--models", help="Specify path to the model Directory", default="models", dest="model_path")
+parser.add_argument("--use_pretrained", help="Whether to use the pretrained Models", action="store_true", dest="use_pretrained")
+parser.add_argument("--use_trained", help="Whether to use the trained Models", action="store_true", dest="use_trained")
+parser.add_argument("--batch_size", help="Batch Size", dest="batch_size", default=1, type=int)
+parser.add_argument("--seed", help="Seed for torch", default=1, dest="seed", type=int)
+parser.add_argument("--epochs", help="Number of Training Epochs", default=1, dest="epochs", type=int)
 
-batch_size = 1
-modelsave_path = "models/"
+# parse the provided arguments
+args = parser.parse_args()
 
-dataset = Dataset(path_data="data/small_dataset.txt", train_test=1)
-training_iterator = dataset.DataLoader(end=dataset.train_cap, batch_size=batch_size)
+# set seed
+torch.manual_seed(args.seed)
 
-# Init models
-generator = Generator.generator(dataset.embedding.embedding_dim)
-discriminator = Discriminator.discriminator(in_size=dataset.embedding.embedding_dim)
-# generator.loadModel()
-# discriminator.loadModel()
+dataset = Dataset(args.data_path, args.model_path, train_test=1)
+training_iterator = dataset.DataLoader(end=dataset.train_cap, batch_size=args.batch_size)
+
+# initialize models
+generator = Generator.generator(dataset.embedding.embedding_dim, args.model_path)
+discriminator = Discriminator.discriminator(dataset.embedding.embedding_dim, args.model_path)
+
+# load the models
+if args.use_trained:
+	generator.loadModel(path=generator.chkpt_path)
+	discriminator.loadModel(path=discriminator.chkpt_path)
+elif args.use_pretrained:
+	generator.loadModel()
+	discriminator.loadModel()
 
 # TRAINING
 generator.train()
 discriminator.train()
-epochs = 1
-training_progress = tqdm(total = dataset.train_cap * epochs, desc = "Training")
+training_progress = tqdm(total = dataset.train_cap * args.epochs, desc = "Training")
 
 try:
-	for epoch in range(epochs):
+	for epoch in range(args.epochs):
 		for real_sample in training_iterator:
-			fake_sample = generator.generate(batch_size)
+			fake_sample = generator.generate(args.batch_size)
 
 			# update the progress bar
-			training_progress.update(batch_size)
+			training_progress.update(args.batch_size)
 
 			# take outputs from discriminator
 			score_real = discriminator(real_sample)
