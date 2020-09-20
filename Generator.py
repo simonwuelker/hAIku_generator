@@ -7,7 +7,7 @@ from torch.distributions import MultivariateNormal
 import numpy as np
 
 class generator(nn.Module):
-	def __init__(self, embedding_dim, hidden_size=400, n_layers=2):
+	def __init__(self, embedding_dim, model_path, hidden_size=400, n_layers=2):
 		super(generator, self).__init__()
 
 		self.embedding_dim = embedding_dim
@@ -15,8 +15,8 @@ class generator(nn.Module):
 		self.n_layers = n_layers
 		self.losses = []
 		self.discount = 0.9
-		self.pretrained_path = "models/Generator_pretrained.pt"
-		self.chkpt_path = "models/Generator.pt"
+		self.pretrained_path = f"{model_path}/Generator_pretrained.pt"
+		self.chkpt_path = f"{model_path}/Generator.pt"
 
 		self.lstm = nn.LSTM(self.embedding_dim + 1, self.hidden_size, self.n_layers, batch_first=True)
 		self.mean = nn.Sequential(
@@ -69,9 +69,9 @@ class generator(nn.Module):
 			std = torch.exp(self.std(lstm_out))
 
 		# put the std on the diagonals of a m x m Matrix where m = embedding_dim
-		std_matrix = torch.zeros(batch_size, self.embedding_dim, self.embedding_dim)
-		for dimension in range(batch_size):
-			std_matrix[dimension] = std[dimension] * torch.eye(self.embedding_dim)
+		# model only outputs variance values along the diagonals rn, might want 
+		# to extend it onto the full covariance matrix later
+		std_matrix = torch.diag_embed(std)
 
 		# Construct a Multivariate Gaussian Distribution and sample an action
 		# for pretraining, use log_prob since sample() doesnt provide gradient
@@ -95,7 +95,8 @@ class generator(nn.Module):
 		for i in range(1, haiku_length + 1):
 			# forward pass
 			input = output[:, :i].clone()  # inplace operation, clone is necessary
-			word, distribution = self(input, haiku_length, std=set_std).view(batch_size, self.embedding_dim)
+			word, distribution = self(input, haiku_length, std=set_std)
+
 			output[:, i] = word
 			self.action_memory[:, i - 1] = distribution.log_prob(word)
 
@@ -139,7 +140,7 @@ class generator(nn.Module):
 					input_sequence = completed[:, :j].clone().view(batch_size, j, self.embedding_dim)
 
 					# choose action 
-					completed[:, j] = self(input_sequence, seq_length)
+					completed[:, j], _ = self(input_sequence, seq_length)
 
 				# get the estimated reward for that rollout from the discriminator
 				qualities[:, rollout_ix] = discriminator(completed[:, 1:]).detach()
