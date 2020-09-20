@@ -35,6 +35,7 @@ These are some handpicked samples from the generator.
 >
 
 ## Future Goals
+* Have the model output a full Covariance Matrix instead of only the diagonal values
 * Scrape Haikus from Twitter
 * Improve charlevel branch
 * Create contributing guidelines
