@@ -1,33 +1,38 @@
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence
+from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence, pad_packed_sequence, PackedSequence
 import numpy as np
-# import gensim
 
 
 class Embedding:
 	def __init__(self, gensim_model):
 		self.embedding_dim = gensim_model.vector_size
 		self.vocab = list(gensim_model.wv.vocab.keys())  # could just use word_to_ix.keys() to save memory
-		print("gensim vocab has ", len(self.vocab), " words")
 		self.word_to_ix = {word:gensim_model.wv.vocab[word].index for index, word in enumerate(self.vocab)}
 		self.ix_to_word = {gensim_model.wv.vocab[word].index:word for index, word in enumerate(self.vocab)}
 
-		# append <eos> and <unk> to the end of wv
-		self.vocab += ["<unk>", "<eos>"]
+		# copy over word vectors from gensim
+		self.word_vectors = torch.FloatTensor(gensim_model.wv.vectors)
 
-		# update dictionaries
-		self.word_to_ix["<unk>"] = len(self.vocab) - 2
-		self.word_to_ix["<eos>"] = len(self.vocab) - 1
-		self.ix_to_word[len(self.vocab) - 2] = "<unk>"
-		self.ix_to_word[len(self.vocab) - 1] = "<eos>"
+		self.append_token("<n>", torch.zeros(self.embedding_dim) - 1) # torch.full doesnt support 1D Tensors
+		self.append_token("<unk>", torch.ones(self.embedding_dim))
+		self.append_token("<eos>", torch.zeros(self.embedding_dim))
 
-		# create word vectors
-		self.word_vectors = torch.zeros(len(self.vocab), self.embedding_dim)
-		self.word_vectors[:-2] = torch.FloatTensor(gensim_model.wv.vectors)  # copy over wv from gensim
-		self.word_vectors[-2] = torch.ones(self.embedding_dim)  # <unk>
-		self.word_vectors[-1] = torch.zeros(self.embedding_dim)  # <eos>
 
+	def append_token(self, token, vector):
+		"""
+		Adds a single token with a given word vector to the models vocabulary
+		"""
+		# update dictionaries and vocab
+		self.vocab.append(token)
+		self.word_to_ix[token] = len(self.vocab) - 1
+		self.ix_to_word[len(self.vocab) - 1] = token
+
+		# update word vectors
+		new_word_vectors = torch.zeros(len(self.vocab), self.embedding_dim)
+		new_word_vectors[:-1] = self.word_vectors  # copy over old vectors
+		new_word_vectors[-1] = vector
+		self.word_vectors = new_word_vectors
 
 	def __getitem__(self, word):
 		try:
@@ -104,16 +109,25 @@ class Dataset(torch.utils.data.Dataset):
 		
 		return result
 
-	def decode(self, tensor):
-		# this function is pretty slow
-		batch_size = tensor.shape[0]
-		seq_length = tensor.shape[1]
+	def decode(self, haiku_enc):
+		"""
+		Decodes the input into a list of Haikus
+		"""
+		if isinstance(haiku_enc, PackedSequence):
+			haiku_enc, lengths = pad_packed_sequence(haiku_enc, batch_first=True)
+		else:
+			# every haiku gets max length
+			lengths = [haiku_enc.shape[1]] * haiku_enc.shape[0]
+
+		batch_size = haiku_enc.shape[0]
 
 		haikus = []
 		for batch_ix in range(batch_size):
 			haiku = ""
-			for word_vector in tensor[batch_ix]:
+			for seq_ix in range(lengths[batch_ix]):
+				word_vector = haiku_enc[batch_ix, seq_ix]
 				haiku += self.embedding.most_similar(word_vector, single=True) + " "
+				
 			haikus.append(haiku)
 
 		return haikus
