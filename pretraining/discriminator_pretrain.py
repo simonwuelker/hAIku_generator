@@ -40,13 +40,13 @@ batch_size = 3
 torch.manual_seed(1)
 np.random.seed(1)
 
-dataset = Dataset(path_data="../data/dataset_clean.txt", path_model="../models/word2vec.model", train_test=0.04)
+dataset = Dataset(path_data="../data/dataset_clean.txt", path_model="../models/", train_test=0.9)
 training_iterator = dataset.DataLoader(end=dataset.train_cap, batch_size=batch_size)
 testing_iterator = dataset.DataLoader(start=dataset.train_cap, end=dataset.test_cap, batch_size=batch_size)
 
 
 # Init/Load model
-discriminator = Discriminator.discriminator(in_size=dataset.embedding.embedding_dim)
+discriminator = Discriminator.discriminator(dataset.embedding.embedding_dim, "../models/")
 # discriminator.loadModel(path="../models/Discriminator_pretrained.pt")
 
 # TRAINING
@@ -83,17 +83,25 @@ finally:
 	discriminator.eval()
 
 	with torch.no_grad():
-		real_scores = torch.zeros(dataset.test_cap - dataset.train_cap, batch_size)
+		len_test = dataset.test_cap - dataset.train_cap
+		real_scores = torch.zeros(len_test, batch_size)
+		fake_scores = torch.zeros(len_test, batch_size)
 		for index, real_sample in enumerate(testing_iterator):
 			# update progress bar
 			testing_progress.update(batch_size)
 
+			fake_sample = generate_random(batch_size)
+
 			#forward pass
 			real_scores[index] = discriminator(real_sample).view(batch_size)
+			fake_scores[index] = discriminator(fake_sample).view(batch_size)
 
-		mean_real_score = torch.mean(real_scores)
 
-		print(f"The mean score for real samples from the training set is: {mean_real_score}")
+		print(f"The mean score for real samples from the training set is: {torch.mean(real_scores)}")
+		print(f"The mean score for fake samples is: {torch.mean(fake_scores)}")
+		print(f"{round((torch.sum(real_scores > 0.5).item()/(len_test * batch_size))*100, 2)}% of real samples were classified correctly")
+		print(f"{round((torch.sum(fake_scores < 0.5).item()/(len_test * batch_size))*100, 2)}% of fake samples were classified correctly")
+
 
 	# smooth out the loss functions (avg of last window episodes)
 	window = 25
