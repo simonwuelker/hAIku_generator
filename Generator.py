@@ -16,7 +16,7 @@ class generator(nn.Module):
 		self.losses = []
 		self.discount = 0.9
 		self.pretrained_path = f"{model_path}/Generator_pretrained.pt"
-		self.chkpt_path = f"{model_path}/Generator.pt"
+		self.trained_path = f"{model_path}/Generator.pt"
 
 		self.lstm = nn.LSTM(self.embedding_dim + 1, self.hidden_size, self.n_layers, batch_first=True)
 		self.mean = nn.Sequential(
@@ -44,7 +44,7 @@ class generator(nn.Module):
 		self.optimizer = optim.Adam(self.parameters())
 
 
-	def forward(self, sequence, haiku_length, std=None):
+	def forward(self, sequence, lengths, std=None):
 		"""
 		Forwards the input through the model. If std is not None, 
 		the model will only output the mean. std should be manually
@@ -55,11 +55,11 @@ class generator(nn.Module):
 
 		# tell the model the remaining number of words at every step
 		input = torch.zeros(batch_size, seq_length, self.embedding_dim + 1)
-		input[:, :, 0] = torch.arange(haiku_length, haiku_length - seq_length, -1)
+		for batch_ix in range(batch_size):
+			input[:, :lengths[batch_ix], 0] = torch.arange(lengths[batch_ix], 0, -1)[:seq_length]
 		input[:, :, 1:] = sequence
 
 		# take the last values from the lstm-forward pass
-		# reuse hidden/cell state?
 		lstm_out, _ = self.lstm(input)
 		lstm_out = lstm_out[:, -1].view(-1, self.hidden_size)
 
@@ -180,5 +180,5 @@ class generator(nn.Module):
 
 	def saveModel(self, path=None):
 		if path is None:
-			path = self.chkpt_path
+			path = self.trained_path
 		torch.save(self.state_dict(), path)

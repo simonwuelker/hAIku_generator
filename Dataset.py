@@ -55,7 +55,6 @@ class Embedding:
 		try:
 			index = self.word_to_ix[word]
 		except KeyError:
-			print("unable to find word: ", word)
 			index = self.word_to_ix["<unk>"]
 
 		word_vector = self.word_vectors[index].view(1, self.embedding_dim)
@@ -105,22 +104,23 @@ class Embedding:
 			return zip(words, lowest_distances)
 
 class Dataset(torch.utils.data.Dataset):
-	def __init__(self, path_data, path_model, train_test=0.8):
+	def __init__(self, path_data, embedding):
 		# load all the haikus from a file
 		with open(path_data, "r", encoding="utf8", errors="ignore") as infile:
 			self.data = infile.read().splitlines()
 
-		self.embedding = torch.load(f"{path_model}/word2vec.model")
+		self.embedding = embedding
 
-		self.train_test = train_test
-		self.train_cap = int(len(self.data) * self.train_test)
-		self.test_cap = len(self.data)
+	def __len__(self):
+		return len(self.data)
 
 	def DataLoader(self, end, start=0, batch_size=1):
 		"""
 		Yield encoded Haikus as PackedSequences until one epoch has passed.
 
 		Parameters:
+				start(int): The index to start yielding samples from
+				end(int): The index to end the epoch on
 				batch_size(int): The number of haikus to be returned per iteration
 
 		Returns:

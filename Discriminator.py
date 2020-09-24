@@ -34,7 +34,7 @@ class discriminator(nn.Module):
 		self.scores_real = []
 		self.scores_fake = []
 		self.pretrained_path = f"{model_path}/Discriminator_pretrained.pt"
-		self.save_path = f"{model_path}/Discriminator.pt"
+		self.trained_path = f"{model_path}/Discriminator.pt"
 
 	def forward(self, input):
 		"""
@@ -72,7 +72,7 @@ class discriminator(nn.Module):
 	def saveModel(self, path=None):
 		"""Saves the model to a path that can optionally be provided"""
 		if path is None:
-			path = self.save_path
+			path = self.trained_path
 		torch.save(self.state_dict(), path)
 
 
