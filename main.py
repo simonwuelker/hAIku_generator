@@ -50,6 +50,8 @@ training_progress = tqdm(total = dataset.train_cap * args.epochs, desc = "Traini
 try:
 	for epoch in range(args.epochs):
 		for real_sample in training_iterator:
+			print(dataset.decode(real_sample))
+			assert False
 			fake_sample = generator.generate(args.batch_size)
 
 			# update the progress bar

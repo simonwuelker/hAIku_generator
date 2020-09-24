@@ -116,7 +116,7 @@ class Dataset(torch.utils.data.Dataset):
 		self.train_cap = int(len(self.data) * self.train_test)
 		self.test_cap = len(self.data)
 
-	def DataLoader(self, batch_size=1):
+	def DataLoader(self, end, start=0, batch_size=1):
 		"""
 		Yield encoded Haikus as PackedSequences until one epoch has passed.
 
@@ -126,7 +126,7 @@ class Dataset(torch.utils.data.Dataset):
 		Returns:
 				packed_data(PackedSequence): the haikus with their corresponding lengths
 		"""
-		for index in range(start, self.train_cap, batch_size):
+		for index in range(start, end, batch_size):
 			unpadded_data = []
 			lengths = []  # lengths are needed for sequence packing
 			for j in range(batch_size):
