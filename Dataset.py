@@ -5,6 +5,10 @@ import numpy as np
 
 
 class Embedding:
+	"""
+	Combine all the functions around word embedddings. Similar to a gensim model instance
+	which is not used here since gensim is annoying to use and takes a while to import.
+	"""
 	def __init__(self, gensim_model):
 		self.embedding_dim = gensim_model.vector_size
 		self.vocab = list(gensim_model.wv.vocab.keys())  # could just use word_to_ix.keys() to save memory
@@ -21,7 +25,11 @@ class Embedding:
 
 	def append_token(self, token, vector):
 		"""
-		Adds a single token with a given word vector to the models vocabulary
+		Add a single token with a given word vector to the model vocabulary
+
+		Parameters:
+				token(String): The token to add to the vocabulary
+				vector(Tensor): The future corresponding vector for the token. Shape [embedding_dim]
 		"""
 		# update dictionaries and vocab
 		self.vocab.append(token)
@@ -35,20 +43,44 @@ class Embedding:
 		self.word_vectors = new_word_vectors
 
 	def __getitem__(self, word):
+		"""
+		Turn a given word into vector. If the word is unknown, the <unk> token
+		is used instead.
+		Parameters:
+				word(String): The word to convert into a vector
+
+		Returns:
+				word_vector(Tensor): The vector corresponding to the word. Shape [1, embedding_dim]
+		"""
 		try:
 			index = self.word_to_ix[word]
 		except KeyError:
 			print("unable to find word: ", word)
 			index = self.word_to_ix["<unk>"]
 
-		return self.word_vectors[index].view(1, self.embedding_dim)
+		word_vector = self.word_vectors[index].view(1, self.embedding_dim)
+		return word_vector
 
 
 	def most_similar(self, target_vector, n=5, single=False):
 		"""
-		Finds the n most similar words to the target vector and returns them as a list with 
+		Find the n most similar words to the target vector and return them as a list with 
 		their corresponding distances.
-		If single is set to True, only the highest word and nothing else is returned.
+
+		Parameters:
+				target_vector(Tensor): The Tensor whose most similar vector is searched for
+				n(int): The number of vectors to return, sorted by similarity, descending
+				single(bool): whether or not to return only a single vector without additional data.
+							  If set to True, the Parameter n will not be accounted for.
+
+		Returns:
+				if single is set to True:
+					closest(String): The word with the Vector most similar to the target Vector
+
+				if single is set to False:
+					closest(zip): A zip object containing the closest words with their corresponding distances,
+						   sorted by distance, descending
+		
 		"""
 		distances = torch.zeros(len(self.vocab))
 		dist = nn.PairwiseDistance(p=2)
@@ -58,7 +90,8 @@ class Embedding:
 			distances[index] = dist(vector.view(1, -1), target_vector.view(1, -1))
 		
 		if single:
-			return self.ix_to_word[torch.argmin(distances).item()]
+			closest = self.ix_to_word[torch.argmin(distances).item()]
+			return closest
 		else:
 			# retrieve the n lowest indices
 			n_highest = torch.argsort(distances)[:n]
@@ -83,7 +116,16 @@ class Dataset(torch.utils.data.Dataset):
 		self.train_cap = int(len(self.data) * self.train_test)
 		self.test_cap = len(self.data)
 
-	def DataLoader(self, end, start=0, batch_size=1):
+	def DataLoader(self, batch_size=1):
+		"""
+		Yield encoded Haikus as PackedSequences until one epoch has passed.
+
+		Parameters:
+				batch_size(int): The number of haikus to be returned per iteration
+
+		Returns:
+				packed_data(PackedSequence): the haikus with their corresponding lengths
+		"""
 		for index in range(start, self.train_cap, batch_size):
 			unpadded_data = []
 			lengths = []  # lengths are needed for sequence packing
@@ -99,8 +141,14 @@ class Dataset(torch.utils.data.Dataset):
 
 	def encode(self, haiku):
 		"""
-		Encodes a single line of text into a Tensor of Shape [num_words, embedding_dim].
-		Sequence Packing is done later in the DataLoader Function.
+		Encode a single line of text into a Pytorch Tensor.
+		Unknown words are replaced with the <unk> token.
+		
+		Parameters:
+				haiku(String): The haiku to be encoded
+
+		Returns:
+				result(Tensor): the resulting Tensor of Shape [sequence, embedding_dim]
 		"""
 		words = haiku.split()
 		result = torch.empty(len(words), self.embedding.embedding_dim)
@@ -111,7 +159,13 @@ class Dataset(torch.utils.data.Dataset):
 
 	def decode(self, haiku_enc):
 		"""
-		Decodes the input into a list of Haikus
+		Decode the input into a list of Haikus
+
+		Parameters:
+				haiku_enc(Tensor, PackedSequence): The encoded Haiku of Shape [batch, sequence, embedding_dim]
+
+		Returns:
+				haikus (list): 1D List of Strings
 		"""
 		if isinstance(haiku_enc, PackedSequence):
 			haiku_enc, lengths = pad_packed_sequence(haiku_enc, batch_first=True)

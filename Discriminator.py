@@ -1,4 +1,3 @@
-# https://github.com/bentrevett/pytorch-sentiment-analysis/blob/master/2%20-%20Upgraded%20Sentiment%20Analysis.ipynb
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -9,6 +8,7 @@ class discriminator(nn.Module):
 	def __init__(self, in_size, model_path, hidden_size=600, out_size=1, n_layers=2, dropout=0.1):
 		super(discriminator, self).__init__()
 
+		# Parameters
 		self.in_size = in_size
 		self.out_size = out_size
 		self.hidden_size = hidden_size
@@ -37,6 +37,15 @@ class discriminator(nn.Module):
 		self.save_path = f"{model_path}/Discriminator.pt"
 
 	def forward(self, input):
+		"""
+		Forwards the input through the model
+
+		Parameters:
+				input(Packedsequence):the input
+		Returns:
+				scores(Tensor):A Tensor of Shape [batch_size, 1] containing values [0, 1] that describe how real 
+							   the discriminator thinks the samples from the input are.
+		"""
 		lstm_out, _ = self.lstm(input)
 
 		if isinstance(lstm_out, PackedSequence):
@@ -49,16 +58,19 @@ class discriminator(nn.Module):
 		return scores
 
 	def learn(self, loss_d):
+		"""Optimizes the discriminator on the loss provided"""
 		self.optimizer.zero_grad()
 		loss_d.backward()
 		self.optimizer.step()
 
 	def loadModel(self, path=None):
+		"""Load the model from a path that can optionally be provided"""
 		if path is None:
 			path = self.pretrained_path
 		self.load_state_dict(torch.load(path))
 
 	def saveModel(self, path=None):
+		"""Saves the model to a path that can optionally be provided"""
 		if path is None:
 			path = self.save_path
 		torch.save(self.state_dict(), path)
