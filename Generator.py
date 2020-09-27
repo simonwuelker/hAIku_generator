@@ -87,15 +87,15 @@ class generator(nn.Module):
 		the set_std Parameter. If set to None, the model will generate the std.
 		"""
 
-		haiku_length = np.random.randint(12, 16)  # length boundaries are arbitrary
-		output = torch.zeros(batch_size, haiku_length + 1, self.embedding_dim) # first element from the output is the inital seed
-		self.action_memory = torch.zeros(batch_size, haiku_length)
+		haiku_lengths =  torch.randint(low=12, high=16, size=(batch_size, 1)).view(batch_size) # length boundaries are arbitrary
+		output = torch.zeros(batch_size, max(haiku_lengths) + 1, self.embedding_dim) # first element from the output is the inital seed
+		self.action_memory = torch.zeros(batch_size, max(haiku_lengths))
 
 		# generate sequence starting from a given seed
-		for i in range(1, haiku_length + 1):
+		for i in range(1, max(haiku_lengths) + 1):
 			# forward pass
 			input = output[:, :i].clone()  # inplace operation, clone is necessary
-			word, distribution = self(input, haiku_length, std=set_std)
+			word, distribution = self(input, haiku_lengths, std=set_std)
 
 			output[:, i] = word
 			self.action_memory[:, i - 1] = distribution.log_prob(word)
@@ -103,68 +103,61 @@ class generator(nn.Module):
 		#remove the seed again
 		output = output[:, 1:]
 
-		# all haikus are initialized with max length, if a <eos> token is found the length is reduced
-		haiku_lengths = torch.full([batch_size], haiku_length, dtype=torch.float32)
-
-		# x = torch.tensor([[all(word_tensor) for word_tensor in batch] for batch in output == torch.zeros(self.embedding_dim)])
-		# batch_indices, seq_indices = torch.nonzero(x, as_tuple=True)
-		# for batch_ix, seq_ix in zip(batch_indices, seq_indices):
-		# 	haiku_lengths[batch_ix] = seq_ix
-
 		# pack the haikus into a PackedSequence object
-		packed_output = pack_padded_sequence(output, haiku_lengths, batch_first=True)
+		packed_output = pack_padded_sequence(output, haiku_lengths, batch_first=True, enforce_sorted=False)
 		return packed_output
 
 	def learn(self, fake_sample_packed, discriminator):
 		fake_sample, lengths = pad_packed_sequence(fake_sample_packed, batch_first=True)
+
 		# This is just plain REINFORCE
 		batch_size = fake_sample.shape[0]
-		seq_length = fake_sample.shape[1]
+		max_len = max(lengths)
 
 		# fill the reward memory using Monte Carlo
 		self.reward_memory = torch.zeros_like(self.action_memory)
-		for seq_ix in range(fake_sample.shape[1]): # the generator didnt take the first action, it was the seed
+		for seq_ix in range(max_len): # the generator didnt take the first action, it was the seed
 
 			#the amount of rollouts performed is proportional to their length
-			num_rollouts = fake_sample.shape[1] - seq_ix
+			num_rollouts = 4  # max_len - seq_ix
 			qualities = torch.zeros(batch_size, num_rollouts)
 
 			for rollout_ix in range(num_rollouts):
 				# initiate starting sequence + seed
-				completed = torch.zeros(batch_size, seq_length + 1, self.embedding_dim)
+				completed = torch.zeros(batch_size, max_len + 1, self.embedding_dim)
 				completed[:, 1:seq_ix + 1] = fake_sample[:, :seq_ix]
 
-
 				# rollout the remaining part of the sequence, rollout policy = generator policy
-				for j in range(seq_ix + 1, fake_sample.shape[1] + 1):
+				for j in range(seq_ix + 1, max_len + 1):
 					input_sequence = completed[:, :j].clone().view(batch_size, j, self.embedding_dim)
 
 					# choose action 
-					completed[:, j], _ = self(input_sequence, seq_length)
+					completed[:, j], _ = self(input_sequence, lengths)
 
 				# get the estimated reward for that rollout from the discriminator
-				qualities[:, rollout_ix] = discriminator(completed[:, 1:]).detach()
+				qualities[:, rollout_ix] = discriminator(completed[:, 1:]).detach().view(batch_size)
 
 			self.reward_memory[:, seq_ix] = torch.mean(qualities, dim=1)
 
 		# normalize the rewards
 		std, mean = torch.std_mean(self.reward_memory, dim=1, unbiased=False)  # avoid bessel
-		std[std == 0] = 1  # remove zeros from std
+		std[std == 0] = 1  # remove zeros from std to avoid division by 0
 		self.reward_memory = (self.reward_memory - mean.view(-1, 1)) / std.view(-1, 1)
 
 		# create a discount vector [1, d, d^2, d^3, ...]
-		discounted_rewards = torch.zeros(batch_size, seq_length)
-		discounts = torch.full([seq_length], self.discount, dtype=torch.float32)
+		discounted_rewards = torch.zeros(batch_size, max_len)
+		discounts = torch.full([max_len], self.discount, dtype=torch.float32)
 		discounts[0] = 1
 		factors = torch.cumprod(discounts, dim=-1)
 
-		# calculate the future discounted rewards
-		for seq_ix in range(seq_length):
-			discounted_rewards[:, seq_ix] = torch.matmul(self.reward_memory[:, seq_ix:], factors[:seq_length - seq_ix])
-
+		# calculate the future discounted rewards. shold only be done if seq_ix < len
+		for seq_ix in range(max_len):
+			discounted_rewards[:, seq_ix] = torch.matmul(self.reward_memory[:, seq_ix:], factors[:max_len - seq_ix])
 
 		# calculate the loss using the REINFORCE Algorithm
-		total_loss = torch.sum(-1 * discounted_rewards * self.action_memory)
+		total_loss = 0
+		for batch_ix in range(batch_size):
+			total_loss += torch.sum(-1 * discounted_rewards[batch_ix, :lengths[batch_ix]] * self.action_memory[batch_ix, :lengths[batch_ix]])
 
 		# optimize the agent
 		self.optimizer.zero_grad()

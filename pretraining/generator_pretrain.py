@@ -39,13 +39,13 @@ def train(generator, dataset, args):
 
 					# get the distribution from the generator
 					_, distribution = generator(input, lengths=lengths, std=std)
-					print(distribution, distribution.sample().shape)
-					assert False
+
 					# if the sequence has ended, dont count the loss
 					for batch_ix in range(batch_size):
 						if index <= lengths[batch_ix]:
 							# maximize the probability of choosing the correct action
-							loss -= distribution.log_prob(target)
+							# this isnt really efficient since the log prob for every batch is calculated every time
+							loss -= distribution.log_prob(target)[batch_ix]
 
 				# optimize the model
 				generator.optimizer.zero_grad()
@@ -54,6 +54,8 @@ def train(generator, dataset, args):
 				generator.losses.append(loss.item())
 
 	finally:
+		generator.saveModel()
+		
 		# TESTING
 		generator.eval()
 
@@ -66,6 +68,9 @@ def train(generator, dataset, args):
 		# 	decoded = dataset.decode(unpacked)
 		# 	for haiku in decoded:
 		# 		print(haiku)
+
+		# smooth out the loss functions (avg of last 25 episodes)
+		generator.losses = [np.mean(generator.losses[max(0, t-25):(t+1)]) for t in range(len(generator.losses))]
 
 		# plot generator loss
 		plt.title("Loss")

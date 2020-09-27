@@ -105,3 +105,5 @@ def train(discriminator, dataset, args):
 		fig.tight_layout()
 		plt.savefig(f"{args.img_path}/discriminator_pretraining.png")
 		plt.show()
+
+	return discriminator

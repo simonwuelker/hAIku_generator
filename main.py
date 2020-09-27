@@ -7,7 +7,6 @@ import Generator
 import Discriminator
 from Dataset import Dataset
 from pretraining import discriminator_pretrain, generator_pretrain, word2vec_pretrain
-import gan_training
 
 import matplotlib.pyplot as plt
 from tqdm import tqdm
@@ -30,7 +29,7 @@ parser.add_argument("--use_pretrained", help="Whether to use the pretrained Mode
 parser.add_argument("--use_trained", help="Whether to use the trained Models", action="store_true", dest="use_trained")
 
 # Parameters(add more here)
-parser.add_argument("--seed", help="Seed for torch/numpy", default=1, dest="seed", type=int)
+parser.add_argument("--seed", help="Seed for torch/numpy", default=1, dest="seed")
 parser.add_argument("--embedding_dim", help="Number of dimensions for word embeddings", type=int, default=80)
 parser.add_argument("--epochs", help="Number of epochs during main training", type=int, default=1)
 parser.add_argument("--batch_size", help="Batch size during main training", type=int, default=5)
@@ -39,8 +38,8 @@ parser.add_argument("--batch_size", help="Batch size during main training", type
 args = parser.parse_args()
 
 # set seed
-torch.manual_seed(args.seed)
-np.random.seed(args.seed)
+torch.manual_seed(int(args.seed))
+np.random.seed(int(args.seed))
 
 # initialize models
 generator = Generator.generator(args.embedding_dim, args.model_path)
@@ -66,21 +65,22 @@ dataset = Dataset(args.data_path, embedding)
 
 if args.pretrain_gen is not None:
 	generator = generator_pretrain.train(generator, dataset, args)
+	generator.saveModel(generator.pretrained_path)
 
 if args.pretrain_dis is not None:
 	discriminator = discriminator_pretrain.train(discriminator, dataset, args)
+	discriminator.saveModel(discriminator.pretrained_path)
 
 if not args.no_train:
 	# TRAINING
 	generator.train()
 	discriminator.train()
-	training_progress = tqdm(total = dataset.train_cap * args.epochs, desc = "Training")
+	training_progress = tqdm(total = len(dataset) * args.epochs, desc = "Training")
+	training_iterator = dataset.DataLoader(len(dataset), args.batch_size)
 
 	try:
-		for epoch in range(args.epochs):
+		for epoch in range(int(args.epochs)):
 			for real_sample in training_iterator:
-				print(dataset.decode(real_sample))
-				assert False
 				fake_sample = generator.generate(args.batch_size)
 
 				# update the progress bar
@@ -91,11 +91,11 @@ if not args.no_train:
 				score_fake = discriminator(fake_sample)
 
 				# Save scores for evaluation
-				discriminator.scores_real.append(score_real.item())
-				discriminator.scores_fake.append(score_fake.item())
+				discriminator.scores_real.append(score_real.mean().item())
+				discriminator.scores_fake.append(score_fake.mean().item())
 
 				# calculate loss
-				loss_d = torch.mean(-torch.log(1 - score_fake) - torch.log(score_real))
+				loss_d = torch.mean(-torch.log(1.0001 - score_fake) - torch.log(0.0001 + score_real))
 				discriminator.losses.append(loss_d.item())
 
 				# optimize discriminator
@@ -116,12 +116,15 @@ if not args.no_train:
 		# 	for haiku in haikus:
 		# 		print(haiku)
 
-		# # smooth out the loss functions (avg of last 25 episodes)
-		# generator.losses = [np.mean(generator.losses[max(0, t-25):(t+1)]) for t in range(len(generator.losses))]
-		# discriminator.losses = [np.mean(discriminator.losses[max(0, t-25):(t+1)]) for t in range(len(discriminator.losses))]
+		# smooth out the loss functions (avg of last 25 episodes)
+		generator.losses = [np.mean(generator.losses[max(0, t-25):(t+1)]) for t in range(len(generator.losses))]
+		discriminator.losses = [np.mean(discriminator.losses[max(0, t-25):(t+1)]) for t in range(len(discriminator.losses))]
+		discriminator.scores_real = [np.mean(discriminator.scores_real[max(0, t-25):(t+1)]) for t in range(len(discriminator.scores_real))]
+		discriminator.scores_fake = [np.mean(discriminator.scores_fake[max(0, t-25):(t+1)]) for t in range(len(discriminator.scores_fake))]
+
 
 		# plot the graph of the different losses over time
-		fig, (d_score_plot, g_loss_plot, d_loss_plot) = plt.subplots(2, 2, num = "Training Data")
+		fig, ((d_score_plot, g_loss_plot), (d_loss_plot, _)) = plt.subplots(2, 2, num = "Training Data")
 
 		# Discriminator scores
 		d_score_plot.title.set_text("Discriminator Scores")
@@ -138,5 +141,7 @@ if not args.no_train:
 		d_loss_plot.plot(discriminator.losses, label = "Discriminator Loss")
 
 		fig.tight_layout()
-		plt.savefig("training_graphs/main.png")
+		plt.savefig(f"{args.img_path}/main.png")
 		plt.show()
+generator.saveModel()
+discriminator.saveModel()
