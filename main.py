@@ -1,10 +1,8 @@
-# hAIku poem generator
 import torch
-import torch.utils.data  # cant inherit from torch.utils.data.Dataset otherwise
 import numpy as np
 
-import Generator
-import Discriminator
+from Generator import Generator
+from Discriminator import Discriminator
 from Dataset import Dataset
 from pretraining import discriminator_pretrain, generator_pretrain, word2vec_pretrain
 
@@ -12,7 +10,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import argparse
 
-# Define an argument parser
+# Define an ArgumentParser
 parser = argparse.ArgumentParser(description="Train a SeqGAN model in continuous Action Space")
 
 # training arguments (batch size, epochs)
@@ -28,7 +26,7 @@ parser.add_argument("--img", help="Specify path to store the training images in"
 parser.add_argument("--use_pretrained", help="Whether to use the pretrained Models", action="store_true", dest="use_pretrained")
 parser.add_argument("--use_trained", help="Whether to use the trained Models", action="store_true", dest="use_trained")
 
-# Parameters(add more here)
+# Parameters
 parser.add_argument("--seed", help="Seed for torch/numpy", default=1, dest="seed")
 parser.add_argument("--embedding_dim", help="Number of dimensions for word embeddings", type=int, default=80)
 parser.add_argument("--epochs", help="Number of epochs during main training", type=int, default=1)
@@ -37,13 +35,13 @@ parser.add_argument("--batch_size", help="Batch size during main training", type
 # parse the provided arguments
 args = parser.parse_args()
 
-# set seed
+# set Seed
 torch.manual_seed(int(args.seed))
 np.random.seed(int(args.seed))
 
 # initialize models
-generator = Generator.generator(args.embedding_dim, args.model_path)
-discriminator = Discriminator.discriminator(args.embedding_dim, args.model_path)
+generator = Generator(args.embedding_dim, args.model_path)
+discriminator = Discriminator(args.embedding_dim, args.model_path)
 
 # load the models
 if args.use_trained:
@@ -54,23 +52,26 @@ elif args.use_pretrained:
 	generator.loadModel()
 	discriminator.loadModel()
 
-# optionally pretrain the word2vec model
+# optionally pretrain the Word2Vec model
 if args.pretrain_w2v:
 	embedding = word2vec_pretrain.train(args)
 else:
 	embedding = torch.load(f"{args.model_path}/word2vec.model")
 
-# create the Dataset for future training
+# create Dataset
 dataset = Dataset(args.data_path, embedding)
 
+# Generator Pretraining
 if args.pretrain_gen is not None:
 	generator = generator_pretrain.train(generator, dataset, args)
 	generator.saveModel(generator.pretrained_path)
 
+# Discriminator pretraining
 if args.pretrain_dis is not None:
 	discriminator = discriminator_pretrain.train(discriminator, dataset, args)
 	discriminator.saveModel(discriminator.pretrained_path)
 
+# Main Training
 if not args.no_train:
 	# TRAINING
 	generator.train()
@@ -98,7 +99,7 @@ if not args.no_train:
 				loss_d = torch.mean(-torch.log(1.0001 - score_fake) - torch.log(0.0001 + score_real))
 				discriminator.losses.append(loss_d.item())
 
-				# optimize discriminator
+				# optimize Models
 				discriminator.learn(loss_d)
 				generator.learn(fake_sample, discriminator)
 
@@ -143,5 +144,3 @@ if not args.no_train:
 		fig.tight_layout()
 		plt.savefig(f"{args.img_path}/main.png")
 		plt.show()
-generator.saveModel()
-discriminator.saveModel()

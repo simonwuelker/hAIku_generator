@@ -6,7 +6,7 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from torch.distributions import MultivariateNormal
 import numpy as np
 
-class generator(nn.Module):
+class Generator(nn.Module):
 	def __init__(self, embedding_dim, model_path, hidden_size=400, n_layers=2):
 		super(generator, self).__init__()
 
