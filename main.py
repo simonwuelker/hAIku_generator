@@ -54,12 +54,10 @@ elif args.use_pretrained:
 
 # optionally pretrain the Word2Vec model
 if args.pretrain_w2v:
-	embedding = word2vec_pretrain.train(args)
-else:
-	embedding = torch.load(f"{args.model_path}/word2vec.model")
+	word2vec_pretrain.train(args)
 
 # create Dataset
-dataset = Dataset(args.data_path, embedding)
+dataset = Dataset(args)
 
 # Generator Pretraining
 if args.pretrain_gen is not None:

@@ -6,7 +6,7 @@ from torch.nn.utils.rnn import pad_packed_sequence, PackedSequence
 
 class Discriminator(nn.Module):
 	def __init__(self, in_size, model_path, hidden_size=600, out_size=1, n_layers=2, dropout=0.1):
-		super(discriminator, self).__init__()
+		super(Discriminator, self).__init__()
 
 		# Parameters
 		self.in_size = in_size

@@ -8,7 +8,7 @@ import numpy as np
 
 class Generator(nn.Module):
 	def __init__(self, embedding_dim, model_path, hidden_size=400, n_layers=2):
-		super(generator, self).__init__()
+		super(Generator, self).__init__()
 
 		self.embedding_dim = embedding_dim
 		self.hidden_size = hidden_size
