@@ -2,7 +2,7 @@ import logging
 import gensim.downloader as api
 from gensim.models.word2vec import Word2Vec
 from gensim.models.word2vec import LineSentence
-from gensim.models import Phrases
+from gensim.models.phrases import Phrases, Phraser
 from gensim.models.keyedvectors import WordEmbeddingsKeyedVectors
 import torch
 import gensim
@@ -16,13 +16,12 @@ def train(args):
 	training_data = api.load('text8')
 
 	# use the phrase model to recognize bigrams like "White House" or "Climate Change"
-	bigram_transformer = Phrases(training_data)
+	bigram_model = Phrases(training_data)
+	# Export the trained model = use less RAM, faster processing. Model updates no longer possible.
+	bigrams = Phraser(bigram_model)
 
 	# # create and train model
-	model = Word2Vec(bigram_transformer[training_data], size=args.embedding_dim)
-
-	# sentences = LineSentence(training_data)
-	# model = Word2Vec(sentences, size=args.embedding_dim)
+	model = Word2Vec(bigrams[training_data], size=args.embedding_dim)
 
 	word_list = list(model.wv.vocab.keys())
 	vector_list = [model[word] for word in word_list]
@@ -38,5 +37,6 @@ def train(args):
 	# as i had a similar issue as https://github.com/RaRe-Technologies/gensim/issues/2532
 	del kv.vectors_norm
 
-	# save the new model
+	# save the new models
+	bigrams.save(f"{args.model_path}/bigram.model")
 	kv.save(f"{args.model_path}/word2vec.model")

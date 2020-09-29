@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence, pad_packed_sequence, PackedSequence
 import numpy as np
 import gensim
+from gensim.models.phrases import Phraser
 
 
 class Dataset(torch.utils.data.Dataset):
@@ -12,6 +13,7 @@ class Dataset(torch.utils.data.Dataset):
 			self.data = infile.read().splitlines()
 
 		self.word2vec = gensim.models.KeyedVectors.load(f"{args.model_path}/word2vec.model")
+		self.bigrams = Phraser.load(f"{args.model_path}/bigram.model")
 
 	def __len__(self):
 		return len(self.data)
@@ -33,27 +35,27 @@ class Dataset(torch.utils.data.Dataset):
 			lengths = []  # lengths are needed for sequence packing
 			for j in range(batch_size):
 				haiku = self.data[index + j]
-				lengths.append(len(haiku.split()))
-				unpadded_data.append(self.encode(haiku))
+				bigrams = self.bigrams[haiku.split()]
+				lengths.append(len(bigrams))
+				unpadded_data.append(self.encode(bigrams))
 
 			# padd the haikus and pack them into a PackedSequence Object
 			padded_data = pad_sequence(unpadded_data, batch_first=True)
 			packed_data = pack_padded_sequence(padded_data, lengths, batch_first=True, enforce_sorted=False)
 			yield packed_data
 
-	def encode(self, haiku):
+	def encode(self, words):
 		"""
 		Encode a single line of text into a Pytorch Tensor.
 		Unknown words are replaced with the <unk> token.
 		
 		Parameters:
-				haiku(String): The haiku to be encoded
+				haiku(String): The haiku to be encoded as a list of tokens(words)
 
 		Returns:
 				result(Tensor): the resulting Tensor of Shape [sequence, embedding_dim]
 		"""
-		words = haiku.split()
-		result = torch.empty(len(words), self.word2vec.vector_size)
+		result = torch.empty(len(words),  self.word2vec.vector_size)
 		for index, word in enumerate(words):
 			try:
 				result[index] = torch.from_numpy(self.word2vec[word])
@@ -86,7 +88,10 @@ class Dataset(torch.utils.data.Dataset):
 			for seq_ix in range(lengths[batch_ix]):
 				word_vector = haiku_enc[batch_ix, seq_ix]
 				haiku += self.word2vec.most_similar(positive=[word_vector.numpy()])[0][0] + " "
-				
+
+			# remove underscores from two-word phrases
+			haiku = haiku.replace("_", " ")
+
 			haikus.append(haiku)
 
 		return haikus
