@@ -75,12 +75,15 @@ if not args.no_train:
 	generator.train()
 	discriminator.train()
 	training_progress = tqdm(total = len(dataset) * args.epochs, desc = "Training")
-	training_iterator = dataset.DataLoader(len(dataset), args.batch_size)
+	training_iterator = dataset.DataLoader(len(dataset), batch_size=args.batch_size)
 
 	try:
 		for epoch in range(int(args.epochs)):
 			for real_sample in training_iterator:
 				fake_sample = generator.generate(args.batch_size)
+				print(dataset.decode(fake_sample))
+				print(dataset.decode(real_sample))
+				input()
 
 				# update the progress bar
 				training_progress.update(args.batch_size)
