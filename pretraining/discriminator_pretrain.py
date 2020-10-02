@@ -20,7 +20,7 @@ def generate_random(dataset, batch_size):
 	for _ in range(batch_size):
 		# generate a single fake sample
 		fake_length = random.randint(8, 13)
-		fake_sample = " ".join([random.choice(tuple(dataset.embedding.vocab)) for word in range(fake_length)])
+		fake_sample = " ".join([random.choice(tuple(dataset.word2vec.vocab.keys())) for word in range(fake_length)])
 		fake_sample = dataset.encode(fake_sample)
 		unpadded_data.append(fake_sample)
 		lengths.append(fake_length)
