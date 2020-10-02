@@ -16,7 +16,7 @@ def train(generator, dataset, args):
 	epochs = int(args.pretrain_gen[1])
 
 	# define std during training
-	std = torch.full([batch_size, dataset.embedding.embedding_dim], 1, dtype=torch.float32)  # manual std is used during training
+	std = torch.full([batch_size, args.embedding_dim], 1, dtype=torch.float32)  # manual std is used during training
 
 	# TRAINING
 	generator.train()
