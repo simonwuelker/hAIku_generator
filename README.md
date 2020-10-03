@@ -21,18 +21,12 @@ Generator into a continuous Action Space by having the Generator output a multiv
 by having the Model only output the mean but not the standard deviation for each of the `num_actions` distributions.
 
 ## Usage
-For the sake of keeping it simple, I am not uploading my dataset here. However, you can just use the Haikus from
-[this Repository](https://github.com/docmarionum1/haikurnn) and preprocess it using 
-[this notebook](https://github.com/Wuelle/BW-KI-2020/blob/Embeddings/Dataset%20Analysis%20and%20Preprocessing.ipynb)
+For the sake of keeping it simple, I am not uploading my dataset here. However, you can just use the dataset from
+[this Repository](https://github.com/docmarionum1/haikurnn) and preprocess it using
+`DatasetPreparation.ipynb`. The resulting file should be placed in the `data/` directory unless specified otherwise.
 
-If you have acquired enough Haikus, place them in the data folder and run the [pretrain.py](https://github.com/Wuelle/BW-KI-2020/blob/Embeddings/pretrain.py)
- file. After thats finished, run the [main.py](https://github.com/Wuelle/BW-KI-2020/blob/Embeddings/main.py) file which will store
- the final generator model under [models/Generator.pt](https://github.com/Wuelle/BW-KI-2020/blob/Embeddings/models/Generator.pt)
-
-## Examples
-These are some handpicked samples from the generator.
->scattered rare conversant entails snatchers
->
+The training is done in `main.py`. Run `python3 main.py -h` to see a list of all parameters you can set.
+Unless the `path_model` Parameter is set, the trained models will be stored in `models/`.
 
 ## Future Goals
 * Have the model output a full Covariance Matrix instead of only the diagonal values
