@@ -114,8 +114,9 @@ class Generator(nn.Module):
 		batch_size = fake_sample.shape[0]
 		max_len = max(lengths)
 
-		# fill the reward memory using Monte Carlo
-		self.reward_memory = torch.zeros_like(self.action_memory)
+		# determine the scores using Monte Carlo
+		# scores are NOT equal to rewards
+		scores = torch.zeros(batch_size, max_len)
 		for seq_ix in range(max_len): # the generator didnt take the first action, it was the seed
 
 			#the amount of rollouts performed is proportional to their length
@@ -137,7 +138,14 @@ class Generator(nn.Module):
 				# get the estimated reward for that rollout from the discriminator
 				qualities[:, rollout_ix] = discriminator(completed[:, 1:]).detach().view(batch_size)
 
-			self.reward_memory[:, seq_ix] = torch.mean(qualities, dim=1)
+			scores[:, seq_ix] = torch.mean(qualities, dim=1)
+
+		# The rewards are the Advantages of the new state, i.e. how much the Haiku has improved by adding
+		# the new token
+		shifted_scores = torch.zeros(batch_size, seq_length)
+		shifted_scores[:, 1:] = scores[:, :-1]
+
+		self.reward_memory = scores - shifted_scores
 
 		# normalize the rewards
 		std, mean = torch.std_mean(self.reward_memory, dim=1, unbiased=False)  # avoid bessel
