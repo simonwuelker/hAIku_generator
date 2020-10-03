@@ -14,7 +14,7 @@ The SeqGAN Algorithm was first proposed by [this Paper](https://arxiv.org/pdf/16
 rates the samples produced by the Generator on a scale from zero to one based on how realistic they seem. However, since the samples are
 sequential and the Discriminator cannot judge partial Sequences, it is unable to directly provide a reward for each timestep to the Generator.
 This Problem is solved by using the classic RL-Algorithm REINFORCE as a Generator Model and rolling out the sequences using Monte-Carlo.
-[SeqGAN-image](https://www.researchgate.net/publication/325709720/figure/fig1/AS:636539755302912@1528774312038/An-illustration-of-SeqGAN-for-text-generation-27-Compared-to-one-step-generation-of.png)
+![SeqGAN-image](https://www.researchgate.net/publication/325709720/figure/fig1/AS:636539755302912@1528774312038/An-illustration-of-SeqGAN-for-text-generation-27-Compared-to-one-step-generation-of.png)
 One Downside of this Procedure is that a REINFORCE Agent can only act in a discrete environment since its output is a probability distribution over a 
 finite number of actions. A somewhat working Implementation of the classic Algorithm can be found in the `charlevel` Branch. I am trying to extend the
 Generator into a continuous Action Space by having the Generator output a multivariate Gaussian Distribution. Exploration can be ensured
@@ -39,7 +39,7 @@ Unless the `path_model` Parameter is set, the trained models will be stored in `
 * Create contributing guidelines
 
 ## Training Images
-[Main Training Image](https://github.com/Wuelle/hAIku_generator/blob/master/training_img/main.png)
+![Main Training Image](https://github.com/Wuelle/hAIku_generator/blob/master/training_img/main.png)
 
 ## Credits
 Though i plan to use my own data eventually, right now i am using a processed version of the dataset from
