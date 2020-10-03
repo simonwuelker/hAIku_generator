@@ -142,7 +142,7 @@ class Generator(nn.Module):
 
 		# The rewards are the Advantages of the new state, i.e. how much the Haiku has improved by adding
 		# the new token
-		shifted_scores = torch.zeros(batch_size, seq_length)
+		shifted_scores = torch.zeros(batch_size, max_len)
 		shifted_scores[:, 1:] = scores[:, :-1]
 
 		self.reward_memory = scores - shifted_scores
