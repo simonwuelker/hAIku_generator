@@ -20,10 +20,13 @@ finite number of actions. A somewhat working Implementation of the classic Algor
 Generator into a continuous Action Space by having the Generator output a multivariate Gaussian Distribution. Exploration can be ensured
 by having the Model only output the mean but not the standard deviation for each of the `num_actions` distributions.
 
+
 ## Usage
 For the sake of keeping it simple, I am not uploading my dataset here. However, you can just use the dataset from
 [this Repository](https://github.com/docmarionum1/haikurnn) and preprocess it using
 `DatasetPreparation.ipynb`. The resulting file should be placed in the `data/` directory unless specified otherwise.
+
+To make sure you have all the required dependencies installed, run `pip install -r requirements.txt`
 
 The training is done in `main.py`. Run `python3 main.py -h` to see a list of all parameters you can set.
 Unless the `path_model` Parameter is set, the trained models will be stored in `models/`.
@@ -34,6 +37,9 @@ Unless the `path_model` Parameter is set, the trained models will be stored in `
 * Scrape Haikus from Twitter
 * Improve charlevel branch
 * Create contributing guidelines
+
+## Training Images
+[Main Training Image](https://github.com/Wuelle/hAIku_generator/blob/master/training_img/main.png)
 
 ## Credits
 Though i plan to use my own data eventually, right now i am using a processed version of the dataset from
