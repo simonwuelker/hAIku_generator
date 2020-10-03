@@ -1,0 +1,7 @@
+# Default libraries like random, numpy etc are not included
+
+tqdm
+spacy
+profanity_filter
+gensim >= 3.8.3
+torch >= 1.5.1
