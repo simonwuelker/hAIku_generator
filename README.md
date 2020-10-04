@@ -1,13 +1,12 @@
-![Flake8](https://github.com/Wuelle/BW-KI-2020/workflows/Flake8/badge.svg)
+![Python Linting with flake8](https://github.com/Wuelle/hAIku_generator/workflows/Python%20Linting%20with%20flake8/badge.svg)
 ![Github All Releases](https://img.shields.io/github/downloads/Wuelle/BW-KI-2020/total.svg)
 [![Open Source? Yes!](https://badgen.net/badge/Open%20Source%20%3F/Yes%21/blue?icon=github)](https://github.com/Naereen/badges/)
 # Haiku Generator
 ## Description
-This Repository contains an implementation of the SeqGan Architecture proposed in [this Paper](https://arxiv.org/pdf/1609.05473.pdf) for generating Haikus. It consists, of two main branches, `charlevel`, which generates text
-character by character and `Embeddings`, which uses the pytorch Embeddings to generate text.
-This Branch, `Gaussian-Generator` attempts to extend the seqGAN Algorithm into a continuous Actionspace by having the Policy Gradient output
-a multivariate Gaussian Distribution across the output space instead of a probability distribution
-across a finite number of  actions.
+This Repository contains an implementation of the SeqGan Architecture proposed in [this Paper](https://arxiv.org/pdf/1609.05473.pdf) for generating Haikus. This Branch, `master`, generates word vectors using multivariate Gaussian Distributions.
+The `charlevel` branch is a somewhat working implementation of the original SeqGAN and `Èmbeddings` is similar to `master` but
+utilizes Deep Deterministic Policy Gradients (DDPG) in order to generate the word vectors. Because DDPG takes a long time to train
+and involves a second non-generator mode, the Critic, this Branch will likely be deleted in the future.
 This project is my submission for the [BW-KI 2020](https://bw-ki.de/) Competition.
 
 ## Functionality
