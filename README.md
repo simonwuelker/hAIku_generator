@@ -2,6 +2,7 @@
 ![Github All Releases](https://img.shields.io/github/downloads/Wuelle/BW-KI-2020/total.svg)
 [![Open Source? Yes!](https://badgen.net/badge/Open%20Source%20%3F/Yes%21/blue?icon=github)](https://github.com/Naereen/badges/)
 # Haiku Generator
+## Description
 This Repository contains an implementation of the SeqGan Architecture proposed in [this Paper](https://arxiv.org/pdf/1609.05473.pdf) for generating Haikus. It consists, of two main branches, `charlevel`, which generates text
 character by character and `Embeddings`, which uses the pytorch Embeddings to generate text.
 This Branch, `Gaussian-Generator` attempts to extend the seqGAN Algorithm into a continuous Actionspace by having the Policy Gradient output
@@ -33,7 +34,8 @@ Unless the `path_model` Parameter is set, the trained models will be stored in `
 
 ## Future Goals
 * Have the model output a full Covariance Matrix instead of only the diagonal values
-* Use Advantage Function for optimizing the Generator 
+* Only use Haikus that fit the syllable criteria
+* Maybe use something more advanced than REINFORCE
 * Scrape Haikus from Twitter
 * Improve charlevel branch
 * Create contributing guidelines
