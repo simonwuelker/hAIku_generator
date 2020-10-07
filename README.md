@@ -29,6 +29,8 @@ For the sake of keeping it simple, I am not uploading my dataset here. However, 
 To make sure you have all the required dependencies installed, run `pip install -r requirements.txt`
 
 The training is done in `main.py`. Run `python3 main.py -h` to see a list of all parameters you can set.
+Since i am not uploading my Word2Vec Model, you need to set the `--pretrain_w2v` parameter on your first run to
+train one yourself.
 Unless the `path_model` Parameter is set, the trained models will be stored in `models/`.
 
 ## Future Goals
