@@ -1,5 +1,4 @@
 ![Python Linting with flake8](https://github.com/Wuelle/hAIku_generator/workflows/Python%20Linting%20with%20flake8/badge.svg)
-![Github All Releases](https://img.shields.io/github/downloads/Wuelle/BW-KI-2020/total.svg)
 [![Open Source? Yes!](https://badgen.net/badge/Open%20Source%20%3F/Yes%21/blue?icon=github)](https://github.com/Naereen/badges/)
 # Haiku Generator
 ## Description
@@ -35,7 +34,7 @@ Unless the `path_model` Parameter is set, the trained models will be stored in `
 
 ## Future Goals
 * Have the model output a full Covariance Matrix instead of only the diagonal values
-* Only use Haikus that fit the syllable criteria
+* Use Pandas for handling the dataset (.csv instead of .txt)
 * Maybe use something more advanced than REINFORCE
 * Scrape Haikus from Twitter
 * Improve charlevel branch
